@@ -1,0 +1,252 @@
+<title>宅建 弱点ドリル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 答案用紙のような1カラム。上に診断、下に〇×ドリル。朱ペン＝正誤の色 */
+:root{
+  --bg:#f6f7f9; --paper:#ffffff; --ink:#1d2433; --muted:#5d6678; --line:#dde1e8;
+  --accent:#1f3d7a; --accent-soft:#e6ecf7;
+  --ok:#1b7a4b; --ok-soft:#e3f3ea; --ng:#c8321e; --ng-soft:#fbe8e4; --warn:#a96a00; --warn-soft:#fbf1dc;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151c; --paper:#1a1f29; --ink:#e7eaf0; --muted:#9aa3b5; --line:#2c3341;
+  --accent:#8fb0ee; --accent-soft:#223152;
+  --ok:#5cc98f; --ok-soft:#173527; --ng:#ff7b66; --ng-soft:#3d1d18; --warn:#e8b14e; --warn-soft:#3a2d12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151c; --paper:#1a1f29; --ink:#e7eaf0; --muted:#9aa3b5; --line:#2c3341;
+  --accent:#8fb0ee; --accent-soft:#223152;
+  --ok:#5cc98f; --ok-soft:#173527; --ng:#ff7b66; --ng-soft:#3d1d18; --warn:#e8b14e; --warn-soft:#3a2d12; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.75;padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.35}
+h1{font-size:1.9rem}
+h2{font-size:1.3rem}
+.eyebrow{font-size:.75rem;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.lead{color:var(--muted);margin:6px 0 0}
+section{display:flex;flex-direction:column;gap:14px}
+.score{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end}
+.big{font-family:var(--display);font-size:3.2rem;line-height:1;font-variant-numeric:tabular-nums}
+.big small{font-size:1.1rem;color:var(--muted)}
+.target{color:var(--muted)}
+.tbl{overflow-x:auto;background:var(--paper);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.8rem;color:var(--muted);font-weight:700;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.bar{height:8px;background:var(--line);border-radius:4px;min-width:80px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ng)}
+.bar i.mid{background:var(--warn)}
+.pill{display:inline-block;font-size:.75rem;font-weight:700;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.p-ng{background:var(--ng-soft);color:var(--ng)} .p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)}
+ul.points{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+details{background:var(--paper);border:1px solid var(--line);border-radius:8px}
+summary{cursor:pointer;padding:10px 14px;font-weight:700}
+details .tbl{border:none;border-top:1px solid var(--line);border-radius:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:2;border-bottom:1px solid var(--line)}
+.chip{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:5px 12px;border-radius:99px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.chip:focus-visible,.ans:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.progress{margin-left:auto;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.card.right{border-color:var(--ok)} .card.wrong{border-color:var(--ng)}
+.meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.8rem;color:var(--muted)}
+.qno{font-family:var(--display);font-weight:800;color:var(--ink);font-size:1rem}
+.stmt{font-size:1.02rem;font-weight:500;margin:0}
+.btns{display:flex;gap:10px}
+.ans{font:inherit;font-family:var(--display);font-size:1.4rem;width:64px;height:48px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.ans:hover{border-color:var(--accent)}
+.ans.sel-ok{background:var(--ok);border-color:var(--ok);color:var(--paper)}
+.ans.sel-ng{background:var(--ng);border-color:var(--ng);color:var(--paper)}
+.exp{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.verdict{font-weight:700}
+.verdict.ok{color:var(--ok)} .verdict.ng{color:var(--ng)}
+.ex{margin:0}
+.ana{margin:0;background:var(--accent-soft);border-radius:6px;padding:8px 12px;font-size:.92rem}
+.ana b{color:var(--accent)}
+.empty{color:var(--muted);text-align:center;padding:24px}
+.reset{font:inherit;font-size:.85rem;background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .2s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">2026年10月 本試験形式・全45問 の答案分析</div>
+    <h1>宅建 弱点ドリル</h1>
+    <p class="lead">間違えた35問の「勘違いポイント」だけを〇×問題に作り直しました。1枚ずつ答えて、すぐ解説を確認できます。</p>
+  </header>
+
+  <section>
+    <h2>結論：点が取れる場所から埋める</h2>
+    <div class="score">
+      <div class="big">15<small> / 50点</small></div>
+      <div class="target">本試験45問で10点＋登録講習の免除5点<br>合格の目安は 35〜37点。あと約21点が必要</div>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>分野</th><th>今回</th><th>正答率</th><th style="width:30%">　</th><th>次回の目標</th></tr></thead>
+      <tbody>
+        <tr><td>宅建業法（問26〜45）</td><td>6 / 20</td><td>30%</td><td><div class="bar"><i class="mid" style="width:30%"></i></div></td><td><b>17点（+11）</b> 最優先</td></tr>
+        <tr><td>権利関係（問1〜14）</td><td>2 / 14</td><td>14%</td><td><div class="bar"><i style="width:14%"></i></div></td><td>8点（+6）</td></tr>
+        <tr><td>法令上の制限（問15〜22）</td><td>2 / 8</td><td>25%</td><td><div class="bar"><i style="width:25%"></i></div></td><td>5点（+3）</td></tr>
+        <tr><td>税・その他（問23〜25）</td><td>0 / 3</td><td>0%</td><td><div class="bar"><i style="width:2%"></i></div></td><td>2点（+2）</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>答え方のクセ（3つ）</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>クセ</th><th>今回の数字</th><th>直し方（例え）</th></tr></thead>
+      <tbody>
+        <tr><td><b>組合せ・個数問題に弱い</b></td><td>10問中 1問正解<br>（問2・4・12・19・24・25・41・43・44 を落とした）</td><td>福引きの玉を1つずつ確認するように、a〜dに<b>必ず〇か×を書いてから</b>選択肢を見る。1つでも迷ったら「確実な〇×」で選択肢を消す。</td></tr>
+        <tr><td><b>「正しいもの」を選ぶ問題で崩れる</b></td><td>22問中 3問正解<br>（「誤っているもの」は23問中 7問）</td><td>問題文の「正しい／誤り」に丸をつける習慣は〇。次は、選んだ肢が<b>本当にその向きか</b>を最後に指さし確認する（電車の指さし点検と同じ）。</td></tr>
+        <tr><td><b>数字・期限のひっかけで落とす</b></td><td>問15・23・26・28・30・40</td><td>「公告の日」と「翌日」、「3年」と「5年」など、似た数字は<b>セットで覚える</b>。下のドリルに数字問題を多めに入れています。</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <details>
+    <summary>45問の答え合わせ一覧（あなたの解答と正解）</summary>
+    <div class="tbl"><table id="keytbl">
+      <thead><tr><th>問</th><th>テーマ</th><th>あなた</th><th>正解</th><th>結果</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </details>
+
+  <section id="drill">
+    <h2>弱点〇×ドリル</h2>
+    <p class="lead" style="margin:0">各問の右上に「元の問題番号」を付けています。間違えたら「間違えた問題だけ」で何度でも解き直せます（答えはこの端末に保存されます）。</p>
+    <div class="toolbar" role="toolbar" aria-label="絞り込み">
+      <button class="chip" data-f="all" aria-pressed="true">すべて</button>
+      <button class="chip" data-f="業法" aria-pressed="false">宅建業法</button>
+      <button class="chip" data-f="権利" aria-pressed="false">権利関係</button>
+      <button class="chip" data-f="法令" aria-pressed="false">法令上の制限</button>
+      <button class="chip" data-f="税" aria-pressed="false">税</button>
+      <button class="chip" data-f="miss" aria-pressed="false">間違えた問題だけ</button>
+      <span class="progress" id="progress"></span>
+    </div>
+    <div class="list" id="list"></div>
+    <div><button class="reset" id="reset">解答をすべて消してやり直す</button></div>
+  </section>
+</div>
+
+<script>
+const KEY=[
+ [1,"売買（原始的不能）","ウ","エ"],[2,"物権変動と登記","エ","イ"],[3,"消滅時効","ウ","ア"],[4,"共有","ア","ウ"],[5,"留置権","ウ","ウ"],
+ [6,"先取特権","イ","ア"],[7,"連帯債務","ウ","ウ"],[8,"弁済","エ","ア"],[9,"手付","イ","ウ"],[10,"使用貸借・賃貸借","イ","ウ"],
+ [11,"不法行為","ア","イ"],[12,"相続の承認・放棄","ア","ウ"],[13,"定期建物賃貸借","ア","エ"],[14,"仮登記","イ","ウ"],[15,"開発許可（承継・公共施設）","ア","エ"],
+ [16,"開発許可（完了検査）","ウ","エ"],[17,"採光・換気","イ","イ"],[18,"建蔽率","ウ","エ"],[19,"国土法 事後届出","エ","ア"],[20,"農地法 遊休農地","無回答","イ"],
+ [21,"盛土規制法","エ","エ"],[22,"土地区画整理 換地計画","イ","ア"],[23,"登録免許税","エ","イ"],[24,"印紙税","イ","ウ"],[25,"空き家の3,000万円控除","イ","エ"],
+ [26,"免許の欠格事由","エ","イ"],[27,"廃業等の届出","エ","エ"],[28,"登録の移転","ウ","ア"],[29,"宅建士の独占業務","イ","イ"],[30,"専任の宅建士","ア","エ"],
+ [31,"宅建士証","イ","イ"],[32,"営業保証金の取戻し","エ","ウ"],[33,"保証協会","エ","イ"],[34,"一般媒介契約","イ","ア"],[35,"媒介契約書","ウ","イ"],
+ [36,"重説（区分所有）","イ","ア"],[37,"重説の方法（IT重説）","ウ","ウ"],[38,"37条書面","エ","ウ"],[39,"クーリング・オフ","ア","エ"],[40,"手付金等の保全措置","ア","エ"],
+ [41,"損害賠償予定・手付の制限","イ","ア"],[42,"報酬（複数業者）","ウ","ウ"],[43,"低廉な空家等の報酬特例","エ","イ"],[44,"監督処分","イ","ウ"],[45,"罰則","エ","エ"]];
+
+// c:分野 s:元の問 q:問題文 a:正解(true=〇) e:解説 r:日常の例え
+const Q=[
+// ===== 宅建業法 =====
+{c:"業法",s:26,q:"暴力団員でなくなった日から5年を経過しない者は、宅建業の免許を受けることができない。",a:true,e:"欠格期間は「5年」。本試験では「3年」に変えたひっかけが出た。",r:"出所してすぐ同じ業界に戻れないのと同じで、「5年は様子見」と覚える。"},
+{c:"業法",s:26,q:"刑の全部の執行猶予の言渡しを受けた者は、執行猶予期間が満了すれば、その翌日から5年待たずに免許を受けられる。",a:true,e:"執行猶予期間が無事に満了すると、刑の言渡しそのものが消える。だから待機期間は不要。",r:"「仮免期間」を無事に終えたら、そのまま本免が出るイメージ。"},
+{c:"業法",s:28,q:"宅建士は、事務禁止処分の期間中は、登録の移転を申請することができない。",a:true,e:"処分中の「引っ越し逃げ」を防ぐため、禁止期間中は移転できない。",r:"出場停止中の選手は移籍もできない、と覚える。"},
+{c:"業法",s:28,q:"登録の移転とともに新しい宅建士証の交付を受けた場合、その有効期間は交付の日から5年となる。",a:false,e:"新しい証の有効期間は、古い証の残りの期間を引き継ぐ。リセットされない。",r:"スマホの機種変更をしても、契約の残り期間はそのまま。"},
+{c:"業法",s:28,q:"宅建士が住所を他の都道府県に変更したときは、登録の移転を申請しなければならない。",a:false,e:"住所変更は「変更の登録」。登録の移転は勤務先が他県の事務所になったときに「できる」（任意）もの。",r:"自宅の引っ越しは住所変更届だけ。転勤（勤務先が他県）のときに初めて「所属替え」を検討できる。"},
+{c:"業法",s:30,q:"一団の宅地建物の分譲を行う案内所で、契約の締結や申込みの受付をする場合は、専任の宅建士を1人以上置かなければならない。",a:true,e:"契約・申込みを受ける案内所には最低1人。事務所は従業者5人に1人以上。",r:"仮設の出張窓口でも、契約を結ぶならハンコ番（責任者）が1人は必要。"},
+{c:"業法",s:30,q:"専任の宅建士の数が法定数に足りなくなったときは、2週間以内に必要な措置をとらなければならない。",a:true,e:"「2週間以内」に補充などの措置。本試験ではこれが正解肢だった。",r:"店長が辞めたら2週間で代わりを立てる、という社内ルールのイメージ。"},
+{c:"業法",s:30,q:"法人である宅建業者の役員が宅建士で、その事務所で自ら主として業務に従事している場合は、専任の宅建士とみなされる。",a:true,e:"役員（業者本人）が主として従事していれば「専任」扱いになる。",r:"社長自身が毎日店に立っていれば、その社長が店の責任者を兼ねられる。"},
+{c:"業法",s:32,q:"免許の有効期間が満了して免許が失効した場合でも、営業保証金を取り戻すことができる。",a:true,e:"失効・廃業でも取り戻せる。ただし原則として6か月以上の公告が必要。",r:"賃貸の敷金と同じで、退去（廃業・失効）すれば返ってくる。ただし「請求する人はいませんか」と先に告知する。"},
+{c:"業法",s:32,q:"保証協会の社員になったため営業保証金が不要になった場合は、公告をせずに直ちに営業保証金を取り戻せる。",a:true,e:"保証協会が代わりに守ってくれるので、公告は不要。",r:"別の保険に入り直したので、古い保険の積立金はすぐ解約できる。"},
+{c:"業法",s:33,q:"保証協会の社員の地位を失った宅建業者は、その日から1週間以内に営業保証金を供託しなければ、業務を続けられない。",a:true,e:"「1週間以内」。本試験の「2週間」はひっかけ。",r:"団体保険から外れたら、1週間以内に自分で保険に入らないと営業停止。"},
+{c:"業法",s:33,q:"保証協会は、新たに社員が加入したときや社員がその地位を失ったときは、直ちにその社員の免許権者に報告しなければならない。",a:true,e:"報告義務あり。本試験では「報告不要」とした誤りの肢が出た。",r:"会員の入退会は、必ず役所に届ける名簿管理。"},
+{c:"業法",s:33,q:"保証協会の社員と取引した宅建業者も、弁済業務保証金から還付を受けることができる。",a:false,e:"還付を受けられるのは宅建業者以外のお客様だけ。業者同士はプロなので保護されない。",r:"お客様のための補償保険で、同業者は対象外。"},
+{c:"業法",s:34,q:"一般媒介契約では、依頼者は他の宅建業者に重ねて依頼し、その業者の媒介で契約を成立させてもよい。",a:true,e:"「重ねて依頼OK」が一般媒介の特徴。本試験の誤り肢はここを逆にしていた。",r:"一般媒介は「相見積もり歓迎」、専任は「1社に絞る約束」。"},
+{c:"業法",s:34,q:"一般媒介契約にも、専任媒介と同じく「業務処理状況の報告義務」がある。",a:false,e:"報告義務は専任（2週間に1回以上）と専属専任（1週間に1回以上）だけ。",r:"相見積もりの業者に週報の義務はない。専属の担当者だけが定期報告する。"},
+{c:"業法",s:35,q:"依頼者が他の業者の媒介で契約を成立させたときの措置は、一般媒介の媒介契約書にも記載しなければならない。",a:true,e:"一般・専任・専属専任のどれでも記載事項。本試験では「専属専任だけ」とした肢が誤り。",r:"どの契約プランでも「他社で決まったらどうするか」は契約書に書いておく。"},
+{c:"業法",s:36,q:"区分所有建物の重要事項説明では、専有部分の用途その他の利用制限に関する規約は、まだ「案」の段階でも説明しなければならない。",a:true,e:"新築マンション販売時は規約が案のことが多い。案でも説明が必要。",r:"新築マンションの「ペット可否」は、規約が確定前でも買う前に伝えるべき情報。"},
+{c:"業法",s:38,q:"天災その他の不可抗力による損害の負担に関する定めは、定めがあるときに限り37条書面に記載すればよい。",a:true,e:"「定めがあれば書く」任意的記載事項。引渡し時期・移転登記の申請時期は必ず書く。",r:"「台風で壊れたら誰が払う」は特約があれば書く。引渡し日は契約書に必ず書く。"},
+{c:"業法",s:39,q:"クーリング・オフで契約を解除できない旨の特約は、買主に不利なものであれば、書面で合意しても無効である。",a:true,e:"買主に不利な特約は無効。本試験ではこれが誤りの正解肢だった。",r:"「返品不可」と書いても、法律で決まった返品期間は消せない。"},
+{c:"業法",s:39,q:"クーリング・オフは書面で行う必要があり、その効力は書面を発した時に生じる。",a:true,e:"「発信主義」。郵便に出した時点で解除が成立。",r:"消印の日が勝負。相手に届くのを待たなくてよい。"},
+{c:"業法",s:40,q:"完成物件の売買で、手付金等の額が代金の10分の1または1,000万円を超えるときは、保全措置が必要である。",a:true,e:"完成物件は「10％か1,000万円」、未完成物件は「5％か1,000万円」。",r:"建物が完成していればリスクが小さいので、預けられる額の上限が大きい。"},
+{c:"業法",s:40,q:"指定保管機関による保管の方法は、未完成物件の売買でも使うことができる。",a:false,e:"指定保管機関（手付金の寄託）は完成物件だけ。未完成物件は銀行等の保証か保証保険。",r:"倉庫に預けて守る方法は、品物が完成しているときだけ使える。"},
+{c:"業法",s:41,q:"業者が売主の場合、損害賠償の予定額が代金の10分の2を超える定めをしたときは、その定め全体が無効になる。",a:false,e:"無効になるのは「2割を超える部分」だけ。定め全体は無効にならない。",r:"制限速度オーバーで罰せられるのは超えた分だけ、というイメージ。"},
+{c:"業法",s:41,q:"業者が売主として受け取った手付は、当事者がどんな名目にしても、解約手付の性質を持つ。",a:true,e:"業者が売主のときは、買主を守るため必ず解約手付扱いになる。",r:"プロが売主なら、買主はいつでも「手付を捨てて」引き返せる非常口が必ずある。"},
+{c:"業法",s:43,q:"低廉な空家等の特例を使うには、あらかじめ依頼者に報酬額を説明し、合意を得る必要がある。",a:true,e:"事前説明と合意が条件。800万円以下（税抜）の宅地建物が対象。",r:"「通常より高めの手数料になります」と最初に伝えて納得してもらう。"},
+{c:"業法",s:43,q:"低廉な空家等の特例を使えば、宅建業者は消費税込み一律33万円の報酬を受け取れる。",a:false,e:"33万円（30万円＋税）は「上限」。一律ではない。",r:"タクシーの上限料金と同じで、必ずその額になるわけではない。"},
+{c:"業法",s:44,q:"免許を与えていない都道府県知事でも、自分の区域内で違反した宅建業者に業務停止処分をすることができる。",a:true,e:"指示処分・業務停止処分は、違反した場所の知事もできる。免許取消しは免許権者だけ。",r:"よその県の車でも、その県の警察が違反切符を切れる。ただし免許取消しは発行元だけ。"},
+{c:"業法",s:44,q:"業務停止処分に違反して業務を行った場合、免許は必ず取り消される。",a:true,e:"必要的取消し。本試験の「直ちに取り消されることはない」は誤り。",r:"出場停止中に試合に出たら、即退場（永久追放）。"},
+// ===== 権利関係 =====
+{c:"権利",s:1,q:"売買契約の時点で建物がすでに焼失していた場合、その契約は当然に無効となる。",a:false,e:"2020年の民法改正で、最初から実現できない契約も有効。買主は損害賠償を請求できる。",r:"予約した品が実は売り切れていても「約束」自体は成立。店は埋め合わせの責任を負う。"},
+{c:"権利",s:1,q:"引渡し前に、売主・買主どちらの責任でもない理由で建物が滅失した場合、買主は代金の支払いを拒むことができる。",a:true,e:"危険負担。品物が届かないなら代金も払わなくてよい。",r:"台風で配送品が全壊したら、代金は払わなくてよい。"},
+{c:"権利",s:2,q:"土地がA→B→Cと順に売られた場合、Cは登記がなくてもAに対して所有権を主張できる。",a:true,e:"Aは取引の当事者（前の持ち主）で「第三者」ではないので、登記は不要。",r:"リレーでバトンを渡した前の走者は「部外者」ではない。"},
+{c:"権利",s:2,q:"遺産分割で法定相続分を超えて取得した不動産の持分は、登記がなくても第三者に対抗できる。",a:false,e:"法定相続分を超える部分は登記が必要（民法899条の2）。",r:"自分の取り分より多くもらった分は、名札（登記）を付けないと他人に取られても文句を言えない。"},
+{c:"権利",s:3,q:"債権は、権利を行使できることを知った時から5年、または行使できる時から10年のうち、早い方で時効消滅する。",a:true,e:"本試験ではこれが正解肢だった。基本ルールそのもの。",r:"「知ってから5年、知らなくても10年」で貸したお金は請求できなくなる。"},
+{c:"権利",s:3,q:"保証人は、主たる債務の消滅時効を援用（主張）することができる。",a:true,e:"保証人・物上保証人・第三取得者は「正当な利益がある者」として援用できる。",r:"連帯保証人も「もう時効ですよね」と言える立場。"},
+{c:"権利",s:4,q:"共有者の一人が持分を放棄したときは、その持分は国庫に帰属する。",a:false,e:"放棄された持分は他の共有者のものになる。",r:"共同購入の仲間が抜けたら、その分は残った仲間で分ける。国には行かない。"},
+{c:"権利",s:4,q:"共有物の分割は原則いつでも請求できるが、5年を超えない期間内は分割しない旨の契約をすることができる。",a:true,e:"不分割特約は最長5年。",r:"共同で買った別荘を「5年は売らない」と約束するのはOK。"},
+{c:"権利",s:6,q:"動産の先取特権は、債務者がその動産を第三者に売って引き渡した後は、その動産について行使できない。",a:true,e:"第三者に引き渡し済みの動産には追いかけられない（民法333条）。",r:"他人の手に渡った商品までは取り返しに行けない。"},
+{c:"権利",s:8,q:"債権者があらかじめ受領を拒んでいる場合、債務者が口頭の提供をしても受け取らないときは、供託して債務を免れることができる。",a:true,e:"受領拒否なら供託できる。本試験はこれを「できない」とした誤り肢が正解だった。",r:"大家が家賃を受け取らなければ、法務局に預ければ払ったことになる。"},
+{c:"権利",s:9,q:"手付による解除をした場合、相手方は別に債務不履行の損害賠償を請求することができる。",a:false,e:"手付解除なら、手付の放棄（倍返し）だけで終わり。追加の損害賠償はない。",r:"キャンセル料を払ったら、それ以上の請求はされない。"},
+{c:"権利",s:9,q:"買主は、売主が契約の履行に着手した後でも、手付を放棄すれば契約を解除できる。",a:false,e:"相手方が履行に着手したら手付解除はできない。自分だけが着手していても相手が未着手なら解除できる。",r:"相手が料理を作り始めたら、キャンセル料を払っても取り消せない。"},
+{c:"権利",s:9,q:"売主が手付解除をするには、手付の倍額を口頭で伝えるだけでは足りず、現実に提供しなければならない。",a:true,e:"倍返しは「現実の提供」が必要（本試験の正解肢）。",r:"「倍にして返す」と言うだけでなく、お金を実際に目の前に出す。"},
+{c:"権利",s:10,q:"返還時期も使用目的も定めない使用貸借では、貸主はいつでも契約を解除できる。",a:true,e:"期間も目的も決めていなければいつでも。目的を決めていれば、その目的が終わるまでは原則できない。",r:"「いつまで・何に使う」を決めずに貸したタダ貸しは、いつでも返してと言える。"},
+{c:"権利",s:11,q:"使用者が従業員の不法行為について被害者に賠償した場合、その従業員に求償できる。",a:true,e:"求償できる（ただし信義則上、相当な範囲に制限される）。",r:"社員の事故で会社が賠償したら、社員に一部を請求できる。"},
+{c:"権利",s:12,q:"相続の放棄は、熟慮期間（3か月）内であれば撤回することができる。",a:false,e:"一度した放棄は撤回できない。",r:"相続放棄は「一度押したら戻れないボタン」。"},
+{c:"権利",s:12,q:"相続人が数人あるときは、限定承認は共同相続人の全員が共同してのみ行うことができる。",a:true,e:"限定承認は全員一致。放棄は一人でできる。",r:"「プラスの範囲で借金を払う」選択は、家族全員の合意が必要。"},
+{c:"権利",s:13,q:"定期建物賃貸借は、公正証書によって契約しなければ効力を生じない。",a:false,e:"「公正証書等の書面」でよい。普通の契約書や電磁的記録でもOK。",r:"「公正証書など」の「など」が大事。普通の契約書でも足りる。"},
+{c:"権利",s:13,q:"貸主が事前に「更新がない」旨の書面を交付して説明しなかったときは、契約の更新がない旨の定めは無効となる。",a:true,e:"事前の書面説明がないと、普通の借家（更新あり）になる。",r:"「期限付きです」と事前に紙で伝えないと、普通の賃貸扱いになる。"},
+{c:"権利",s:13,q:"期間1年以上の定期建物賃貸借で、貸主が期間満了の1年前から6か月前までに終了の通知をしなかった場合、終了を借主に対抗できない。",a:true,e:"通知が必要。遅れて通知した場合は、通知から6か月後に終了を主張できる。",r:"退去のお知らせは半年以上前に。遅れたら、そこから半年待つ。"},
+{c:"権利",s:14,q:"仮登記義務者の承諾があるときは、仮登記権利者が単独で仮登記を申請できる。",a:true,e:"承諾を証する情報を提供すれば単独申請できる。本試験では「共同申請が必要」が誤り肢。",r:"相手の同意書があれば、窓口に一人で行ける。"},
+// ===== 法令上の制限 =====
+{c:"法令",s:15,q:"開発行為で設置された公共施設の用地は、工事完了公告の日に、その公共施設を管理すべき者に帰属する。",a:false,e:"帰属するのは公告の日の「翌日」。",r:"引っ越しの完了報告の「翌日」から鍵が新しい持ち主へ。"},
+{c:"法令",s:16,q:"開発許可を受けた開発区域内では、工事完了公告の前であっても、土地を建築物の敷地として自由に利用できる。",a:false,e:"公告前は原則として建築不可。例外は「工事用の仮設建築物」「知事が支障ないと認めたとき」「同意していない地主」。",r:"造成工事の完成検査が終わるまで、家は建てられない。"},
+{c:"法令",s:18,q:"防火地域内の耐火建築物等の緩和と、角地の緩和は、重ねて適用できる。",a:true,e:"両方そろえば建蔽率は10分の2プラス。",r:"「角地割」と「防火割」のクーポンは併用できる。"},
+{c:"法令",s:18,q:"建蔽率の限度が10分の8の地域内で、防火地域内にある耐火建築物等には、建蔽率の制限が適用されない。",a:true,e:"8/10＋2/10で実質100％になるため、制限なし。",r:"もともと8割OKの土地に防火ボーナス2割で、敷地いっぱい建てられる。"},
+{c:"法令",s:19,q:"国土利用計画法の事後届出は、売主が行わなければならない。",a:false,e:"届出をするのは買主（権利取得者）。契約から2週間以内。",r:"買った人が「買いました」と報告する。売った人ではない。"},
+{c:"法令",s:19,q:"市街化調整区域内の5,000㎡以上の土地の売買契約をした場合、事後届出が必要である。",a:true,e:"面積の目安：市街化区域2,000㎡、その他の都市計画区域5,000㎡、区域外10,000㎡。",r:"「2・5・10（千㎡）」の階段で、街から離れるほど大きな土地だけが対象。"},
+{c:"法令",s:19,q:"贈与で土地を取得した場合、国土利用計画法の事後届出は不要である。",a:true,e:"対価のない贈与は「取引」に当たらないため届出不要（〇）。",r:"タダでもらった土地は「売買」ではないので報告不要。"},
+{c:"法令",s:20,q:"農業委員会は、毎年1回、区域内の農地の利用状況について調査を行わなければならない。",a:true,e:"本試験の正解肢。遊休農地は「調査→意向確認→勧告」の順で進む。",r:"年1回の農地の健康診断。いきなり勧告（処方）はしない。"},
+{c:"法令",s:22,q:"個人施行者が定める換地計画も、都道府県知事の認可を受けなければならない。",a:true,e:"個人施行でも知事の認可が必要。本試験では「個人は不要」が誤り肢。",r:"個人で区画整理をしても、配置換えの計画は役所のチェックを受ける。"},
+// ===== 税 =====
+{c:"税",s:23,q:"住宅用家屋の登録免許税の軽減を受けるには、取得後1年以内に登記を受ける必要がある。",a:true,e:"「1年以内」。本試験の「5年以内」はひっかけ。",r:"新居の割引は、買って1年以内に申請しないと使えない。"},
+{c:"税",s:23,q:"住宅用家屋の登録免許税の軽減を受けるには、床面積（登記記録上）が50㎡以上でなければならない。",a:true,e:"50㎡以上が要件。",r:"ワンルームの小さすぎる部屋は割引対象外。"},
+{c:"税",s:24,q:"同じ内容の売買契約書を2通作成し、売主・買主が1通ずつ保存する場合、2通とも印紙税が課される。",a:true,e:"1通ごとに課税（各通課税）。",r:"同じ内容でも、紙が2枚なら切手（印紙）も2枚。"},
+{c:"税",s:24,q:"国と民間が共同で作成した契約書のうち、民間が保存するものは、国が作成したものとみなされ印紙税は課されない。",a:true,e:"民間が持つ分は「国が作った文書」扱いで非課税。国が持つ分は民間が作った扱いで課税。",r:"相手が国なら、自分が持つ控えは国が発行した書類扱いになる。"},
+{c:"税",s:24,q:"土地の贈与契約書は、記載金額のない契約書として印紙税200円が課される。",a:true,e:"贈与は対価がないので「記載金額なし」扱いで200円。",r:"値段が書けない契約書は、一番安い定額の印紙。"},
+{c:"税",s:25,q:"相続した空き家の3,000万円特別控除の対象は、昭和56年5月31日以前に建築された家屋である。",a:true,e:"旧耐震の古い家を対象にした制度。「6月1日以後」は誤り。",r:"古い家を放置させないための特典なので、古い家が対象。"},
+{c:"税",s:25,q:"相続した空き家の特別控除の額は、譲渡益の額にかかわらず常に3,000万円である。",a:false,e:"控除は譲渡益が上限。2024年以降は相続人が3人以上なら1人2,000万円。",r:"割引券が3,000円でも、1,000円の買い物なら1,000円しか引けない。"},
+{c:"税",s:25,q:"空き家特例の適用には、相続の時から譲渡の時まで、事業・貸付・居住の用に供していないことが必要である。",a:true,e:"本試験の正解（a・c）の片方。",r:"空き家のまま売ること。途中で貸したら対象外。"}
+];
+
+const store={get(){try{return JSON.parse(localStorage.getItem("takken-drill")||"{}")}catch(e){return{}}},set(v){try{localStorage.setItem("takken-drill",JSON.stringify(v))}catch(e){}}};
+let ans=store.get(), filter="all";
+
+const kb=document.querySelector("#keytbl tbody");
+KEY.forEach(([n,t,y,c])=>{const ok=y===c;const tr=document.createElement("tr");
+ tr.innerHTML=`<td>問${n}</td><td>${t}</td><td>${y}</td><td>${c}</td><td><span class="pill ${ok?"p-ok":"p-ng"}">${ok?"正解":"不正解"}</span></td>`;kb.appendChild(tr)});
+
+const list=document.getElementById("list");
+function render(){
+ list.innerHTML="";
+ const items=Q.map((x,i)=>({...x,i})).filter(x=>filter==="all"||x.c===filter||(filter==="miss"&&ans[x.i]!==undefined&&ans[x.i]!==x.a));
+ if(!items.length){list.innerHTML=`<p class="empty">${filter==="miss"?"間違えた問題はありません。まず「すべて」から解いてみてください。":"問題がありません。"}</p>`}
+ items.forEach((x,k)=>{
+  const done=ans[x.i]!==undefined, ok=done&&ans[x.i]===x.a;
+  const el=document.createElement("article");el.className="card"+(done?(ok?" right":" wrong"):"");
+  el.innerHTML=`<div class="meta"><span class="qno">Q${x.i+1}</span><span class="pill p-warn">${x.c==="業法"?"宅建業法":x.c==="権利"?"権利関係":x.c==="法令"?"法令上の制限":"税"}</span><span>本試験 問${x.s} の弱点</span></div>
+  <p class="stmt">${x.q}</p>
+  <div class="btns"><button class="ans" id="q${x.i}t" aria-label="正しい">〇</button><button class="ans" id="q${x.i}f" aria-label="誤り">×</button></div>
+  <div class="exp" ${done?"":"hidden"}><div class="verdict ${ok?"ok":"ng"}">${ok?"正解":"不正解"}　答えは「${x.a?"〇":"×"}」</div><p class="ex">${x.e}</p><p class="ana"><b>例えると：</b>${x.r}</p></div>`;
+  const [bt,bf]=el.querySelectorAll(".ans");
+  if(done){(ans[x.i]?bt:bf).classList.add(ok?"sel-ok":"sel-ng")}
+  bt.onclick=()=>pick(x.i,true);bf.onclick=()=>pick(x.i,false);
+  list.appendChild(el)});
+ const n=Object.keys(ans).length,c=Object.entries(ans).filter(([i,v])=>Q[i]&&Q[i].a===v).length;
+ document.getElementById("progress").textContent=`解答 ${n}/${Q.length}　正解 ${c}`;
+}
+function pick(i,v){ans[i]=v;store.set(ans);const y=window.scrollY;render();window.scrollTo(0,y)}
+document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
+document.getElementById("reset").onclick=()=>{ans={};store.set(ans);render()};
+render();
+</script>
