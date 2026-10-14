@@ -572,8 +572,9 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     const out = waveOutside(o);
     const pad = cs * (out ? 0.02 : 0.08), w = cs - pad * 2, maxH = cs * 0.3 * o.waveHeight;
     const gap = S * 0.03;
-    const base = { above: y0 - gap, below: y0 + cs + gap, top: y0 + cs * 0.12, center: y0 + cs / 2, bottom: y0 + cs * 0.88 }[o.wavePos];
-    const grow = { above: 'up', bottom: 'up', below: 'down', top: 'down', center: 'mid' }[o.wavePos];
+    // ジャケの外に出すときは、中心線から上下に伸びる完全な波形にする
+    const base = { above: y0 - gap - maxH / 2, below: y0 + cs + gap + maxH / 2, top: y0 + cs * 0.12, center: y0 + cs / 2, bottom: y0 + cs * 0.88 }[o.wavePos];
+    const grow = { above: 'mid', below: 'mid', bottom: 'up', top: 'down', center: 'mid' }[o.wavePos];
     if (!out) drawScrim();
     function drawScrim() {
     // 読みやすいように波形の後ろを少し暗くする
