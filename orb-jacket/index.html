@@ -473,11 +473,52 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     return c;
   }
 
-  const canFilter = (() => {
-    const c = document.createElement('canvas').getContext('2d');
-    if (!('filter' in c)) return false;
-    c.filter = 'blur(2px)'; return c.filter === 'blur(2px)';
-  })();
+  // ---- 背景用のぼかし（ガウスぼかし相当を3回の箱ぼかしで計算。どの端末でも同じ仕上がり）----
+  function gaussBoxes(sigma, n) {
+    const wIdeal = Math.sqrt(12 * sigma * sigma / n + 1);
+    let wl = Math.floor(wIdeal); if (wl % 2 === 0) wl--;
+    const m = Math.round((12 * sigma * sigma - n * wl * wl - 4 * n * wl - 3 * n) / (-4 * wl - 4));
+    return Array.from({ length: n }, (_, i) => i < m ? wl : wl + 2);
+  }
+  function boxH(s, d, w, h, r) {
+    const k = 1 / (r + r + 1);
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      let acc = s[row] * (r + 1);
+      for (let j = 0; j < r; j++) acc += s[row + Math.min(j, w - 1)];
+      for (let x = 0; x < w; x++) {
+        acc += s[row + Math.min(x + r, w - 1)] - s[row + Math.max(x - r - 1, 0)];
+        d[row + x] = acc * k;
+      }
+    }
+  }
+  function boxV(s, d, w, h, r) {
+    const k = 1 / (r + r + 1);
+    for (let x = 0; x < w; x++) {
+      let acc = s[x] * (r + 1);
+      for (let j = 0; j < r; j++) acc += s[Math.min(j, h - 1) * w + x];
+      for (let y = 0; y < h; y++) {
+        acc += s[Math.min(y + r, h - 1) * w + x] - s[Math.max(y - r - 1, 0) * w + x];
+        d[y * w + x] = acc * k;
+      }
+    }
+  }
+  function gaussBlurCanvas(cv, sigma, sat) {
+    const w = cv.width, h = cv.height, g = cv.getContext('2d');
+    const im = g.getImageData(0, 0, w, h), px = im.data, n = w * h;
+    const ch = [new Float32Array(n), new Float32Array(n), new Float32Array(n)], tmp = new Float32Array(n);
+    for (let i = 0; i < n; i++) { ch[0][i] = px[i * 4]; ch[1][i] = px[i * 4 + 1]; ch[2][i] = px[i * 4 + 2]; }
+    if (sigma >= 0.5) {
+      const boxes = gaussBoxes(sigma, 3);
+      for (const c of ch) for (const bx of boxes) { const r = (bx - 1) >> 1; boxH(c, tmp, w, h, r); boxV(tmp, c, w, h, r); }
+    }
+    for (let i = 0; i < n; i++) {
+      const r = ch[0][i], gg = ch[1][i], b = ch[2][i], l = 0.299 * r + 0.587 * gg + 0.114 * b;
+      px[i * 4] = l + (r - l) * sat; px[i * 4 + 1] = l + (gg - l) * sat; px[i * 4 + 2] = l + (b - l) * sat; px[i * 4 + 3] = 255;
+    }
+    g.putImageData(im, 0, 0);
+  }
+
   function buildBg() {
     const { W, H, img } = state;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -487,34 +528,28 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     // ぼかしで端が黒ずまないよう大きめに敷く
     const scale = Math.max(W, H) * (1.35 + blur * 0.3) / Math.min(img.width, img.height);
     const iw = img.width * scale, ih = img.height * scale;
-    // 1/4サイズでぼかしてから拡大する（大きなぼかしが速く、なめらかになる）
-    const q = 4, sw = Math.ceil(W / q), sh = Math.ceil(H / q);
+    // 半分の解像度でぼかし、なめらかに拡大する（十分ぼけているので画質は落ちない）
+    const q = 2, sw = Math.ceil(W / q), sh = Math.ceil(H / q);
     const t = document.createElement('canvas'); t.width = sw; t.height = sh;
-    const tx = t.getContext('2d');
-    tx.fillStyle = '#05040a'; tx.fillRect(0, 0, sw, sh);
-    const radius = Math.max(W, H) * blur * 0.16 / q;   // 標準(60%)で約100px相当
-    if (canFilter) {
-      tx.filter = `blur(${radius.toFixed(1)}px) saturate(1.4)`;
-      tx.drawImage(img, (sw - iw / q) / 2, (sh - ih / q) / 2, iw / q, ih / q);
-      tx.filter = 'none';
-      x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
-      x.drawImage(t, 0, 0, W, H);
-    } else {
-      // ぼかし機能がない環境：さらに小さく縮めて、段階的に拡大してぼかす
-      const k = Math.max(1, Math.round(1 + blur * 14));
-      const u = document.createElement('canvas'); u.width = Math.max(2, Math.ceil(sw / k)); u.height = Math.max(2, Math.ceil(sh / k));
-      const ux = u.getContext('2d');
-      ux.imageSmoothingQuality = 'high';
-      ux.drawImage(img, (u.width - iw / q / k) / 2, (u.height - ih / q / k) / 2, iw / q / k, ih / q / k);
-      tx.imageSmoothingQuality = 'high';
-      tx.drawImage(u, 0, 0, sw, sh);
-      x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
-      x.drawImage(t, 0, 0, W, H);
-    }
+    const tx = t.getContext('2d', { willReadFrequently: true });
+    tx.imageSmoothingEnabled = true; tx.imageSmoothingQuality = 'high';
+    tx.drawImage(img, (sw - iw / q) / 2, (sh - ih / q) / 2, iw / q, ih / q);
+    gaussBlurCanvas(t, Math.max(W, H) * blur * 0.16 / q, 1.4);   // 標準(60%)で約100px相当
+    x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    x.drawImage(t, 0, 0, W, H);
     x.fillStyle = `rgba(5,4,12,${dark})`; x.fillRect(0, 0, W, H);
     const vg = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.75);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.75)');
     x.fillStyle = vg; x.fillRect(0, 0, W, H);
+    // ごく薄い粒子を混ぜて、なめらかなグラデーションの縞（バンディング）を防ぐ
+    const im = x.getImageData(0, 0, W, H), d = im.data;
+    let seed = 12345;
+    for (let i = 0; i < d.length; i += 4) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const nz = ((seed >>> 24) / 255 - 0.5) * 7;
+      d[i] += nz; d[i + 1] += nz; d[i + 2] += nz;
+    }
+    x.putImageData(im, 0, 0);
     state.bg = c;
   }
 
@@ -1008,7 +1043,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     return state.audioBuffer;
   }
   async function pickVideoConfig(W, H, fps) {
-    const bitrate = Math.round(W * H * fps * 0.16);   // 720×1080@60 ≒ 7.5Mbps
+    const bitrate = Math.round(W * H * fps * 0.26);   // 720×1080@60 ≒ 12Mbps（背景のグラデーションを崩さない画質）
     // H.264が最優先（iPhone・SNSでそのまま使える）。無いブラウザはVP9で。
     const cands = ['avc1.640033', 'avc1.64002A', 'avc1.4D0033', 'avc1.42E033', 'avc1.42002A'].map(codec => [{ codec, avc: { format: 'avc' } }, 'avc'])
       .concat([[{ codec: 'vp09.00.41.08' }, 'vp9'], [{ codec: 'vp09.00.40.08' }, 'vp9']]);
