@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orb Jacket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Serif+JP:wght@400;700&family=Zen+Maru+Gothic:wght@500;700&family=M+PLUS+Rounded+1c:wght@500;800&family=Shippori+Mincho:wght@500;800&family=Kaisei+Decol:wght@700&family=RocknRoll+One&family=Reggae+One&family=Yusei+Magic&family=Hachi+Maru+Pop&family=DotGothic16&family=Bebas+Neue&family=Playfair+Display:ital,wght@0,700;1,700&family=Cinzel:wght@700&family=Pacifico&family=Monoton&display=swap">
+<style>
+/* Layout: 左に大きなプレビュー（ステージ）、右にミキサー卓のような操作パネル。狭い画面では縦積み。 */
+:root {
+  color-scheme: dark;
+  --bg: #0b0a12;
+  --panel: #14121f;
+  --line: #2a2640;
+  --fg: #ece9f7;
+  --muted: #9a94b8;
+  --accent: #b69cff;
+  --accent-2: #ff9ad5;
+  --ok: #7ee2b8;
+  --font-display: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  padding-inline: 16px;
+  padding-block: 20px 40px;
+  min-height: 100%;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(26px, 4vw, 38px);
+  margin: 0;
+  letter-spacing: 0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+header p { margin: 0; color: var(--muted); }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+
+
+.stage {
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  position: relative;
+  min-width: 0;
+}
+.canvas-box {
+  display: grid; place-items: center;
+  min-height: 280px;
+  border-radius: 8px;
+  background: repeating-conic-gradient(#0e0d16 0 25%, #12101c 0 50%) 0 0 / 22px 22px;
+  position: relative;
+}
+canvas#view { display: block; max-width: 100%; max-height: 70vh; width: auto; height: auto; border-radius: 4px; }
+.drop-hint {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: rgba(182, 156, 255, 0.18);
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  font-weight: 700; font-size: 18px;
+  pointer-events: none;
+}
+.stage-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tag {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+}
+.tag.sample { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 50%, transparent); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  display: grid; gap: 18px;
+  min-width: 0;
+}
+.group { display: grid; gap: 10px; }
+.group h2 {
+  margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-family: var(--font-mono);
+  display: flex; align-items: center; gap: 8px;
+}
+.group h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 48px; gap: 10px; align-items: center; }
+.row label { color: var(--fg); font-size: 13px; }
+.row output { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+input[type="color"] { width: 100%; height: 34px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+input[type="text"], select {
+  width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font: inherit;
+}
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { flex: 1; flex-direction: column; gap: 0; line-height: 1.2; }
+.seg small { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
+button, .file-btn {
+  font: inherit; font-weight: 500; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: border-color .15s, background .15s;
+}
+button:hover, .file-btn:hover { border-color: var(--accent); }
+button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--bg)); border-color: var(--accent); }
+button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-btn { position: relative; }
+.primary {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #160f24; border: 0; font-weight: 700; padding: 12px 16px; font-size: 15px;
+}
+.primary:disabled { opacity: .55; cursor: progress; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.small { font-size: 12px; color: var(--muted); margin: 0; }
+.progress { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.result { display: grid; gap: 10px; }
+.result video { width: 100%; border-radius: 8px; background: #000; }
+.result .dl {
+  color: #160f24; font-weight: 700; font-size: 15px;
+  background: var(--ok); border: 0; border-radius: 8px; padding: 12px;
+}
+.swatches { display: flex; gap: 6px; }
+.swatches span { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255,255,255,.15); }
+@media (max-width: 900px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .stage { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; padding: 10px; }
+  .canvas-box { min-height: 0; }
+  canvas#view { max-height: 40vh; }
+  .stage-bar { gap: 6px; }
+  #fpsTag { display: none; }
+  .panel { padding: 14px; }
+  .row { grid-template-columns: 84px minmax(0, 1fr) 44px; }
+  input[type="range"] { height: 28px; }
+  button, .file-btn { min-height: 44px; }
+}@media (prefers-reduced-motion: reduce) { button, .file-btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Orb Jacket</h1>
+    <p>ジャケ写を読み込むと、角丸ジャケット＋周りを漂うオーブのループ動画を書き出します。</p>
+  </header>
+
+  <div class="main">
+    <section class="stage" aria-label="プレビュー">
+      <div class="canvas-box" id="dropZone">
+        <canvas id="view" width="720" height="1080"></canvas>
+        <div class="drop-hint" id="dropHint" hidden>ここに画像をドロップ</div>
+      </div>
+      <div class="stage-bar">
+        <span class="tag sample" id="sampleTag">サンプル画像を表示中</span>
+        <span class="tag" id="sizeTag">720 × 1080</span>
+        <span class="tag" id="fpsTag">— fps</span>
+        <div class="swatches" id="swatches" title="画像から抽出したオーブの色"></div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="設定">
+      <div class="group">
+        <h2>素材</h2>
+        <label class="file-btn">ジャケ写を選ぶ（画像）
+          <input type="file" id="imgInput" accept="image/*">
+        </label>
+        <label class="file-btn">音楽を追加（任意）
+          <input type="file" id="audioInput" accept="audio/*">
+        </label>
+        <p class="small" id="audioName">音楽を入れると動画に音が入り、音に合わせてジャケットとオーブが脈打ちます。</p>
+        <button id="audioPreview" type="button" hidden aria-pressed="false">▶ 音楽付きでプレビュー</button>
+      </div>
+
+      <div class="group">
+        <h2>サイズ</h2>
+        <div class="seg" id="aspectSeg">
+          <button type="button" data-w="720" data-h="1080" aria-pressed="true">2:3<br><small>720×1080</small></button>
+          <button type="button" data-w="1080" data-h="1080" aria-pressed="false">1:1</button>
+          <button type="button" data-w="1080" data-h="1920" aria-pressed="false">9:16</button>
+          <button type="button" data-w="1920" data-h="1080" aria-pressed="false">16:9</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>ジャケット</h2>
+        <div class="row"><label for="radius">角の丸み</label><input type="range" id="radius" min="0" max="50" value="12"><output for="radius" id="radiusOut">12%</output></div>
+        <div class="row"><label for="coverSize">大きさ</label><input type="range" id="coverSize" min="30" max="80" value="56"><output for="coverSize" id="coverSizeOut">56%</output></div>
+        <label class="check"><input type="checkbox" id="ring" checked>回転する光のフチ</label>
+        <label class="check"><input type="checkbox" id="float" checked>ふわっと呼吸する動き</label>
+      </div>
+
+      <div class="group">
+        <h2>オーブ</h2>
+        <div class="row"><label for="orbCount">数</label><input type="range" id="orbCount" min="0" max="40" value="16"><output for="orbCount" id="orbCountOut">16</output></div>
+        <div class="row"><label for="orbSize">大きさ</label><input type="range" id="orbSize" min="20" max="200" value="100"><output for="orbSize" id="orbSizeOut">100%</output></div>
+        <div class="row"><label for="glow">輝き</label><input type="range" id="glow" min="10" max="200" value="100"><output for="glow" id="glowOut">100%</output></div>
+        <div class="row"><label for="particles">光の粒</label><input type="range" id="particles" min="0" max="300" value="120"><output for="particles" id="particlesOut">120</output></div>
+        <div class="row"><label for="speed">速さ</label><input type="range" id="speed" min="1" max="4" value="1"><output for="speed" id="speedOut">×1</output></div>
+        <button type="button" id="reseed">配置をシャッフル</button>
+      </div>
+
+      <div class="group">
+        <h2>文字（任意）</h2>
+        <input type="text" id="title" placeholder="曲名" autocomplete="off">
+        <input type="text" id="artist" placeholder="アーティスト名" autocomplete="off">
+        <div class="row"><label for="titleFont">曲名の書体</label><select id="titleFont"></select><span></span></div>
+        <div class="row"><label for="artistFont">名前の書体</label><select id="artistFont"></select><span></span></div>
+        <label class="file-btn">自分のフォントを追加（.ttf / .otf / .woff）
+          <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2,font/*">
+        </label>
+        <div class="row"><label for="textSize">文字の大きさ</label><input type="range" id="textSize" min="50" max="200" value="100"><output for="textSize" id="textSizeOut">100%</output></div>
+        <div class="row"><label for="textColor">文字の色</label><input type="color" id="textColor" value="#ffffff"><span></span></div>
+        <label class="check"><input type="checkbox" id="textGlow" checked>文字をオーブの色で光らせる</label>
+      </div>
+
+      <div class="group">
+        <h2>書き出し</h2>
+        <div class="row"><label for="fps">フレームレート</label><select id="fps"><option value="60" selected>60fps</option><option value="30">30fps</option></select><span></span></div>
+        <div class="row"><label for="duration">長さ</label><input type="range" id="duration" min="5" max="60" value="10"><output for="duration" id="durationOut">10秒</output></div>
+        <p class="small">書き出し中は画面を消さず、このページを開いたままにしてください。1コマずつ描いてMP4に書き出すので、PCの性能に関係なく指定したフレームレートでカクつきのない動画になります。動きは指定した長さでぴったり1周し、ループ再生してもつなぎ目が出ません。</p>
+        <button type="button" class="primary" id="recordBtn">動画を生成</button>
+        <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+        <p class="small" id="status">準備OK</p>
+        <div class="result" id="result" hidden>
+          <video id="resultVideo" controls loop playsinline></video>
+          <button type="button" class="dl" id="saveBtn">動画を保存</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script>
+(() => {
+  const view = document.getElementById('view');
+  const ctx = view.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+
+  const state = {
+    W: 720, H: 1080,
+    img: null, isSample: true,
+    palette: [],
+    seed: 7,
+    orbs: [], parts: [],
+    bg: null, sprites: [],
+    level: 0,
+  };
+
+  // ---------- 設定値 ----------
+  const opt = () => ({
+    radius: +$('radius').value / 100,
+    coverSize: +$('coverSize').value / 100,
+    ring: $('ring').checked,
+    float: $('float').checked,
+    orbCount: +$('orbCount').value,
+    orbSize: +$('orbSize').value / 100,
+    glow: +$('glow').value / 100,
+    particles: +$('particles').value,
+    speed: +$('speed').value,
+    duration: +$('duration').value,
+    title: $('title').value.trim(),
+    artist: $('artist').value.trim(),
+    titleFont: fontById($('titleFont').value),
+    artistFont: $('artistFont').value === 'same' ? fontById($('titleFont').value) : fontById($('artistFont').value),
+    textSize: +$('textSize').value / 100,
+    textColor: $('textColor').value,
+    textGlow: $('textGlow').checked,
+    fps: +$('fps').value,
+  });
+
+  const outputs = {
+    radius: v => v + '%', coverSize: v => v + '%', orbCount: v => v, orbSize: v => v + '%',
+    glow: v => v + '%', textSize: v => v + '%', particles: v => v, speed: v => '×' + v, duration: v => v + '秒',
+  };
+  for (const id in outputs) {
+    const el = $(id);
+    const sync = () => { $(id + 'Out').textContent = outputs[id](el.value); };
+    el.addEventListener('input', () => { sync(); if (id === 'orbCount' || id === 'particles') buildScene(); });
+    sync();
+  }
+
+  // ---------- 書体 ----------
+  const FONTS = [
+    { id: 'zenkaku', name: 'Zen角ゴシック（標準）', family: 'Zen Kaku Gothic New', w1: 700, w2: 500 },
+    { id: 'notosans', name: 'Noto Sans JP（太）', family: 'Noto Sans JP', w1: 900, w2: 400 },
+    { id: 'maru', name: 'Zen丸ゴシック', family: 'Zen Maru Gothic', w1: 700, w2: 500 },
+    { id: 'mplus', name: 'M PLUS Rounded 1c', family: 'M PLUS Rounded 1c', w1: 800, w2: 500 },
+    { id: 'dela', name: 'デラゴシック（極太）', family: 'Dela Gothic One', w1: 400, w2: 400 },
+    { id: 'rocknroll', name: 'ロックンロール', family: 'RocknRoll One', w1: 400, w2: 400 },
+    { id: 'reggae', name: 'レゲエ', family: 'Reggae One', w1: 400, w2: 400 },
+    { id: 'shippori', name: 'しっぽり明朝', family: 'Shippori Mincho', w1: 800, w2: 500 },
+    { id: 'notoserif', name: 'Noto Serif JP（明朝）', family: 'Noto Serif JP', w1: 700, w2: 400 },
+    { id: 'decol', name: '解星デコール', family: 'Kaisei Decol', w1: 700, w2: 700 },
+    { id: 'yusei', name: '油性マジック（手書き）', family: 'Yusei Magic', w1: 400, w2: 400 },
+    { id: 'hachimaru', name: 'はちまるポップ', family: 'Hachi Maru Pop', w1: 400, w2: 400 },
+    { id: 'dot', name: 'ドットゴシック', family: 'DotGothic16', w1: 400, w2: 400 },
+    { id: 'bebas', name: 'Bebas Neue（英字）', family: 'Bebas Neue', w1: 400, w2: 400, spacing: 0.06 },
+    { id: 'playfair', name: 'Playfair Display（英字）', family: 'Playfair Display', w1: 700, w2: 700, style: 'italic' },
+    { id: 'cinzel', name: 'Cinzel（英字）', family: 'Cinzel', w1: 700, w2: 700, spacing: 0.08 },
+    { id: 'pacifico', name: 'Pacifico（英字筆記）', family: 'Pacifico', w1: 400, w2: 400 },
+    { id: 'monoton', name: 'Monoton（英字ネオン）', family: 'Monoton', w1: 400, w2: 400 },
+  ];
+  const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];
+  const fontCss = (f, weight, px) => `${f.style || 'normal'} ${weight} ${px}px "${f.family}", "Zen Kaku Gothic New", sans-serif`;
+  function fillFontSelects(keepTitle, keepArtist) {
+    const opts = FONTS.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+    $('titleFont').innerHTML = opts;
+    $('artistFont').innerHTML = '<option value="same">曲名と同じ</option>' + opts;
+    $('titleFont').value = keepTitle || 'zenkaku';
+    $('artistFont').value = keepArtist || 'same';
+  }
+  fillFontSelects();
+  async function ensureFonts() {
+    // キャンバスは未読込の書体を勝手に読み込まないので、使う文字で明示的に読み込む
+    const o = opt();
+    const jobs = [];
+    if (o.title) jobs.push(document.fonts.load(fontCss(o.titleFont, o.titleFont.w1, 40), o.title));
+    if (o.artist) jobs.push(document.fonts.load(fontCss(o.artistFont, o.artistFont.w2, 40), o.artist));
+    try { await Promise.all(jobs); } catch (e) { /* 失敗しても代替書体で描く */ }
+  }
+  ['titleFont', 'artistFont', 'title', 'artist'].forEach(id => $(id).addEventListener('input', ensureFonts));
+  $('fontInput').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const id = 'user' + FONTS.length;
+    const family = 'UserFont' + FONTS.length;
+    try {
+      const face = new FontFace(family, await f.arrayBuffer());
+      await face.load(); document.fonts.add(face);
+      FONTS.unshift({ id, name: '★ ' + f.name.replace(/\.[^.]+$/, ''), family, w1: 400, w2: 400 });
+      const keepArtist = $('artistFont').value;
+      fillFontSelects(id, keepArtist);
+      $('status').textContent = `フォント「${f.name}」を追加して曲名に適用しました。`;
+    } catch (err) {
+      $('status').textContent = 'このフォントファイルは読み込めませんでした。.ttf / .otf / .woff を試してください。';
+    }
+  });
+
+  // ---------- 乱数（シード固定でループ・再現性を保つ）----------
+  function rng(seed) {
+    let s = seed >>> 0;
+    return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+
+  // ---------- サンプルのジャケット ----------
+  function makeSample() {
+    const c = document.createElement('canvas'); c.width = c.height = 1000;
+    const g = c.getContext('2d');
+    const lg = g.createLinearGradient(0, 0, 1000, 1000);
+    lg.addColorStop(0, '#2b1055'); lg.addColorStop(0.55, '#7a2a8c'); lg.addColorStop(1, '#ff8a5c');
+    g.fillStyle = lg; g.fillRect(0, 0, 1000, 1000);
+    const r = rng(3);
+    for (let i = 0; i < 26; i++) {
+      g.globalAlpha = 0.08 + r() * 0.2;
+      g.fillStyle = i % 2 ? '#ffd1f0' : '#8fd3ff';
+      g.beginPath(); g.arc(r() * 1000, r() * 1000, 20 + r() * 180, 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+    g.fillStyle = '#fff8fd';
+    g.beginPath(); g.arc(500, 470, 210, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2b1055';
+    g.font = '400 110px "Dela Gothic One", sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('ORB', 500, 470);
+    g.fillStyle = 'rgba(255,255,255,.85)';
+    g.font = '600 34px "JetBrains Mono", monospace';
+    g.fillText('SAMPLE ・ 画像を読み込んでね', 500, 860);
+    return c;
+  }
+
+  // ---------- 色の抽出 ----------
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) { if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return [h, max ? d / max : 0, max];
+  }
+  function extractPalette(img) {
+    const c = document.createElement('canvas'); c.width = c.height = 48;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, 48, 48);
+    const d = g.getImageData(0, 0, 48, 48).data;
+    const bins = Array.from({ length: 12 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
+    let avg = [0, 0, 0];
+    for (let i = 0; i < d.length; i += 4) {
+      const [h, s, v] = rgbToHsv(d[i], d[i + 1], d[i + 2]);
+      avg[0] += d[i]; avg[1] += d[i + 1]; avg[2] += d[i + 2];
+      const w = s * s * v + 0.002;
+      const bin = bins[Math.floor(h / 30) % 12];
+      bin.w += w; bin.r += d[i] * w; bin.g += d[i + 1] * w; bin.b += d[i + 2] * w;
+    }
+    const n = d.length / 4;
+    const top = bins.filter(b => b.w > 0.5).sort((a, b) => b.w - a.w).slice(0, 4)
+      .map(b => brighten([b.r / b.w, b.g / b.w, b.b / b.w]));
+    if (top.length < 2) {
+      // モノクロ寄りの画像：平均色＋白っぽい光で補う
+      top.push(brighten(avg.map(x => x / n)), [255, 240, 250], [200, 220, 255]);
+    }
+    return top.slice(0, 4);
+  }
+  function brighten([r, g, b]) {
+    // オーブとして光らせたいので明度を持ち上げる
+    const m = Math.max(r, g, b, 1), k = 235 / m;
+    return [r, g, b].map(x => Math.min(255, Math.round(x * k * 0.8 + 50)));
+  }
+
+  // ---------- シーン構築 ----------
+  function makeSprite([r, g, b]) {
+    const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+    const x = c.getContext('2d');
+    const gr = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    gr.addColorStop(0, `rgba(255,255,255,0.95)`);
+    gr.addColorStop(0.12, `rgba(${r},${g},${b},0.9)`);
+    gr.addColorStop(0.4, `rgba(${r},${g},${b},0.35)`);
+    gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    x.fillStyle = gr; x.fillRect(0, 0, s, s);
+    return c;
+  }
+  function makeBokeh([r, g, b]) {
+    const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+    const x = c.getContext('2d');
+    const gr = x.createRadialGradient(s / 2, s / 2, s * 0.3, s / 2, s / 2, s / 2);
+    gr.addColorStop(0, `rgba(${r},${g},${b},0.18)`);
+    gr.addColorStop(0.85, `rgba(${r},${g},${b},0.32)`);
+    gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    x.fillStyle = gr; x.fillRect(0, 0, s, s);
+    return c;
+  }
+
+  const canFilter = (() => {
+    const c = document.createElement('canvas').getContext('2d');
+    if (!('filter' in c)) return false;
+    c.filter = 'blur(2px)'; return c.filter === 'blur(2px)';
+  })();
+  function buildBg() {
+    const { W, H, img } = state;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    x.fillStyle = '#05040a'; x.fillRect(0, 0, W, H);
+    const scale = Math.max(W, H) * 1.35 / Math.min(img.width, img.height);
+    const iw = img.width * scale, ih = img.height * scale;
+    if (canFilter) {
+      x.filter = `blur(${Math.round(Math.max(W, H) / 22)}px) saturate(1.4)`;
+      x.drawImage(img, (W - iw) / 2, (H - ih) / 2, iw, ih);
+      x.filter = 'none';
+    } else {
+      // 縮小→拡大でぼかす
+      const t = document.createElement('canvas'); t.width = Math.ceil(W / 24); t.height = Math.ceil(H / 24);
+      const tx = t.getContext('2d');
+      tx.drawImage(img, (t.width - iw / 24) / 2, (t.height - ih / 24) / 2, iw / 24, ih / 24);
+      x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+      x.drawImage(t, 0, 0, W, H);
+    }
+    x.fillStyle = 'rgba(5,4,12,0.55)'; x.fillRect(0, 0, W, H);
+    const vg = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.75)');
+    x.fillStyle = vg; x.fillRect(0, 0, W, H);
+    state.bg = c;
+  }
+
+  function buildScene() {
+    const o = opt();
+    const r = rng(state.seed);
+    const pal = state.palette;
+    state.sprites = pal.map(makeSprite);
+    state.bokeh = pal.map(makeBokeh);
+    state.orbs = Array.from({ length: o.orbCount }, (_, i) => ({
+      color: i % pal.length,
+      bokeh: r() < 0.35,
+      angle: r() * Math.PI * 2,
+      dir: r() < 0.5 ? -1 : 1,
+      dist: 0.32 + r() * 0.5,          // 中心からの距離（短辺比）
+      wobA: 0.03 + r() * 0.08, wobF: 1 + Math.floor(r() * 3), wobP: r() * Math.PI * 2,
+      size: 0.05 + r() * r() * 0.22,   // 短辺比
+      pulseF: 1 + Math.floor(r() * 3), pulseP: r() * Math.PI * 2,
+    }));
+    state.parts = Array.from({ length: o.particles }, () => ({
+      x: r(), y0: r(), n: 1 + Math.floor(r() * 2), swayA: 0.01 + r() * 0.03, swayF: 1 + Math.floor(r() * 3), swayP: r() * 6.28,
+      size: 0.6 + r() * 2.2, tw: r() * 6.28, color: Math.floor(r() * pal.length),
+    }));
+    $('swatches').innerHTML = pal.map(([r, g, b]) => `<span style="background:rgb(${r},${g},${b})"></span>`).join('');
+  }
+
+  function setImage(img, isSample) {
+    state.img = img; state.isSample = isSample;
+    state.palette = extractPalette(img);
+    $('sampleTag').hidden = !isSample;
+    buildBg(); buildScene();
+  }
+
+  function setSize(W, H) {
+    state.W = W; state.H = H;
+    view.width = W; view.height = H;
+    $('sizeTag').textContent = `${W} × ${H}`;
+    if (state.img) buildBg();
+  }
+
+  // ---------- 描画 ----------
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function render(t) {
+    const o = opt();
+    const { W, H, img } = state;
+    const S = Math.min(W, H);
+    const TAU = Math.PI * 2;
+    const P = ((t % o.duration) / o.duration) * TAU;   // 0→2π で1ループ
+    const sp = o.speed;
+    const lv = state.level;
+    const hasText = o.title || o.artist;
+
+    // 背景（ゆっくりズーム＆回転）
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(Math.sin(P) * 0.04);
+    const bs = 1.12 + Math.sin(P * sp) * 0.04 + lv * 0.05;
+    ctx.scale(bs, bs);
+    ctx.drawImage(state.bg, -W / 2, -H / 2);
+    ctx.restore();
+
+    // ジャケット位置
+    const breath = o.float ? Math.sin(P * 2 * sp) * 0.012 : 0;
+    const cs = S * o.coverSize * (1 + breath + lv * 0.06);
+    const cx = W / 2;
+    const cy = H / 2 - (hasText ? S * 0.05 : 0) + (o.float ? Math.sin(P * sp) * S * 0.006 : 0);
+
+    // オーブ
+    ctx.globalCompositeOperation = 'lighter';
+    for (const orb of state.orbs) {
+      const a = orb.angle + orb.dir * sp * P;
+      const dist = S * (orb.dist + orb.wobA * Math.sin(orb.wobF * sp * P + orb.wobP));
+      const x = cx + Math.cos(a) * dist * (W / S) ** 0.5;
+      const y = cy + Math.sin(a) * dist * (H / S) ** 0.5;
+      const pulse = 0.75 + 0.25 * Math.sin(orb.pulseF * sp * P + orb.pulseP);
+      const size = S * orb.size * o.orbSize * (orb.bokeh ? 1.6 : 1) * (1 + lv * 0.5);
+      ctx.globalAlpha = Math.min(1, (orb.bokeh ? 0.55 : 0.7) * o.glow * pulse * (1 + lv));
+      const spr = (orb.bokeh ? state.bokeh : state.sprites)[orb.color];
+      ctx.drawImage(spr, x - size / 2, y - size / 2, size, size);
+    }
+
+    // 光の粒（下から上へ、ループ）
+    for (const p of state.parts) {
+      const prog = (p.y0 + p.n * P / TAU) % 1;
+      const y = H * (1.05 - prog * 1.1);
+      const x = W * (p.x + p.swayA * Math.sin(p.swayF * P + p.swayP));
+      const tw = 0.5 + 0.5 * Math.sin(P * 6 + p.tw);
+      const edge = Math.sin(prog * Math.PI);
+      const [r, g, b] = state.palette[p.color];
+      ctx.globalAlpha = Math.min(1, edge * tw * 0.9 * o.glow);
+      ctx.fillStyle = `rgb(${Math.min(255, r + 60)},${Math.min(255, g + 60)},${Math.min(255, b + 60)})`;
+      const rad = p.size * S / 1080 * 1.6;
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    const x0 = cx - cs / 2, y0 = cy - cs / 2, rad = cs * o.radius;
+
+    // 回転する光のフチ
+    if (o.ring && ctx.createConicGradient) {
+      const cg = ctx.createConicGradient(P * sp, cx, cy);
+      const pal = state.palette;
+      const c0 = `rgb(${pal[0].join(',')})`, c1 = `rgb(${pal[1 % pal.length].join(',')})`;
+      cg.addColorStop(0, c0); cg.addColorStop(0.25, 'rgba(255,255,255,0)');
+      cg.addColorStop(0.5, c1); cg.addColorStop(0.75, 'rgba(255,255,255,0)'); cg.addColorStop(1, c0);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const pad = S * 0.012;
+      for (const [blur, alpha, lw] of [[S * 0.05, 0.9, S * 0.012], [0, 1, S * 0.004]]) {
+        ctx.shadowColor = c0; ctx.shadowBlur = blur;
+        ctx.globalAlpha = alpha * Math.min(1, o.glow);
+        ctx.strokeStyle = cg; ctx.lineWidth = lw;
+        roundRect(x0 - pad, y0 - pad, cs + pad * 2, cs + pad * 2, rad + pad);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ジャケット本体（影＋角丸クリップ）
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = S * 0.07; ctx.shadowOffsetY = S * 0.02;
+    ctx.fillStyle = '#000';
+    roundRect(x0, y0, cs, cs, rad); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    roundRect(x0, y0, cs, cs, rad); ctx.clip();
+    const k = Math.max(cs / img.width, cs / img.height);
+    const iw = img.width * k, ih = img.height * k;
+    ctx.drawImage(img, cx - iw / 2, cy - ih / 2, iw, ih);
+    // 斜めに流れるツヤ
+    const sx = x0 - cs + ((P / TAU * sp) % 1) * cs * 3;
+    const sh = ctx.createLinearGradient(sx, y0, sx + cs * 0.5, y0 + cs * 0.5);
+    sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sh; ctx.fillRect(x0, y0, cs, cs);
+    ctx.restore();
+
+    // 文字
+    if (hasText) {
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = S * 0.02;
+      if (o.textGlow) { ctx.shadowColor = `rgba(${state.palette[0].join(',')},0.9)`; ctx.shadowBlur = S * 0.03; }
+      let ty = cy + S * o.coverSize / 2 + S * 0.06;
+      const setSpacing = (f, px) => { if ('letterSpacing' in ctx) ctx.letterSpacing = (f.spacing || 0) * px + 'px'; };
+      if (o.title) {
+        const px = Math.round(S * 0.05 * o.textSize);
+        ctx.fillStyle = o.textColor;
+        ctx.font = fontCss(o.titleFont, o.titleFont.w1, px); setSpacing(o.titleFont, px);
+        ctx.fillText(o.title, cx, ty, W * 0.9);
+        ty += px * 1.35;
+      }
+      if (o.artist) {
+        const px = Math.round(S * 0.032 * o.textSize);
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = o.textColor;
+        ctx.font = fontCss(o.artistFont, o.artistFont.w2, px); setSpacing(o.artistFont, px);
+        ctx.fillText(o.artist, cx, ty, W * 0.9);
+      }
+      ctx.restore();
+    }
+  }
+
+  // ---------- 音声 ----------
+  // <audio>要素を使わず、デコードした音をWeb Audioで鳴らす（iPhone・アプリ内でも動く）
+  let actx = null, analyser = null, audioDest = null, buf = null, srcNode = null;
+  function ensureAudioGraph() {
+    if (actx) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = actx.createAnalyser(); analyser.fftSize = 1024;
+    buf = new Uint8Array(analyser.fftSize);
+    analyser.connect(actx.destination);
+    if (actx.createMediaStreamDestination) { audioDest = actx.createMediaStreamDestination(); analyser.connect(audioDest); }
+  }
+  function playAudio(loop) {
+    stopAudio();
+    const n = actx.createBufferSource();
+    n.buffer = state.audioBuffer; n.loop = loop;
+    n.connect(analyser); n.start(0);
+    srcNode = n;
+  }
+  function stopAudio() {
+    if (srcNode) { try { srcNode.stop(); } catch (e) {} srcNode.disconnect(); srcNode = null; }
+  }
+  function readLevel() {
+    if (!srcNode) { state.level *= 0.9; return; }
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+    const rms = Math.sqrt(sum / buf.length);
+    const target = Math.min(1, Math.max(0, (rms - 0.04) * 3.5));
+    state.level += (target - state.level) * (target > state.level ? 0.5 : 0.12);
+  }
+
+  $('audioInput').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    stopAudioPreview();
+    state.audioFile = f; state.audioBuffer = null;
+    $('audioName').textContent = '♪ ' + f.name + '（読み込み中…）';
+    try {
+      await decodeAudio();
+      $('audioName').textContent = `♪ ${f.name}（${state.audioBuffer.duration.toFixed(1)}秒）`;
+      $('audioPreview').hidden = false;
+    } catch (err) {
+      state.audioFile = null;
+      $('audioName').textContent = 'この音楽ファイルは読み込めませんでした。MP3 / M4A / WAV を試してください。';
+    }
+  });
+  $('audioPreview').addEventListener('click', async () => {
+    ensureAudioGraph(); actx.resume();
+    const btn = $('audioPreview');
+    if (!srcNode) { t0 = performance.now(); playAudio(true); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '■ プレビューを止める'; }
+    else stopAudioPreview();
+  });
+
+  // ---------- ループ ----------
+  let t0 = performance.now(), frames = 0, lastFps = performance.now();
+  let exporting = false;
+  function tick(now) {
+    requestAnimationFrame(tick);
+    if (exporting) return;   // 書き出し中はエクスポート側が描画する
+    readLevel();
+    render((now - t0) / 1000);
+    frames++;
+    if (now - lastFps > 1000) { $('fpsTag').textContent = 'preview ' + Math.round(frames * 1000 / (now - lastFps)) + ' fps'; frames = 0; lastFps = now; }
+  }
+
+  // ---------- 入力 ----------
+  function loadFile(f) {
+    if (!f || !f.type.startsWith('image/')) { $('status').textContent = '画像ファイル（JPG / PNG など）を選んでください。'; return; }
+    const img = new Image();
+    img.onload = () => { setImage(img, false); $('status').textContent = '画像を読み込みました。'; };
+    img.onerror = () => { $('status').textContent = 'この画像は読み込めませんでした。別の形式で試してください。'; };
+    img.src = URL.createObjectURL(f);
+  }
+  $('imgInput').addEventListener('change', e => loadFile(e.target.files[0]));
+  const dz = $('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); $('dropHint').hidden = false; });
+  dz.addEventListener('dragleave', () => { $('dropHint').hidden = true; });
+  dz.addEventListener('drop', e => { e.preventDefault(); $('dropHint').hidden = true; loadFile(e.dataTransfer.files[0]); });
+  window.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])][0]; if (f) loadFile(f); });
+
+  document.querySelectorAll('#aspectSeg button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#aspectSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    setSize(+b.dataset.w, +b.dataset.h);
+  }));
+  $('reseed').addEventListener('click', () => { state.seed = (Math.random() * 1e9) | 0; buildScene(); });
+
+  // ---------- 書き出し ----------
+  const setBusy = (busy, label) => {
+    $('recordBtn').disabled = busy; $('recordBtn').textContent = busy ? label : '動画を生成';
+    if (busy) $('result').hidden = true;
+  };
+  const stopAudioPreview = () => {
+    stopAudio(); $('audioPreview').setAttribute('aria-pressed', 'false'); $('audioPreview').textContent = '▶ 音楽付きでプレビュー';
+  };
+  function showResult(blob, ext, note) {
+    const url = URL.createObjectURL(blob);
+    if (state.resultUrl) URL.revokeObjectURL(state.resultUrl);
+    state.resultUrl = url;
+    state.result = { blob, filename: `orb-jacket-${state.W}x${state.H}-${opt().fps}fps.${ext}` };
+    $('resultVideo').hidden = false;
+    $('resultVideo').src = url;
+    $('saveBtn').textContent = `動画を保存（.${ext}・${(blob.size / 1048576).toFixed(1)}MB）`;
+    $('result').hidden = false;
+    $('progressBar').style.width = '100%';
+    $('status').textContent = note;
+  }
+  $('resultVideo').addEventListener('error', () => { $('resultVideo').hidden = true; });   // 再生できない環境ではプレビューだけ隠す
+  const claudeDownloads = window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  $('saveBtn').addEventListener('click', async () => {
+    const r = state.result; if (!r) return;
+    const dl = await claudeDownloads;
+    if (dl) {
+      try { await dl.save({ filename: r.filename, data: r.blob }); $('status').textContent = '保存しました。'; }
+      catch (e) {
+        if (e?.code === 'declined') $('status').textContent = '保存をキャンセルしました。';
+        else if (e?.code === 'rate_limited') $('status').textContent = '少し待ってからもう一度押してください。';
+        else $('status').textContent = 'ここでは保存できませんでした（' + (e?.code || e) + '）。';
+      }
+      return;
+    }
+    const file = new File([r.blob], r.filename, { type: r.blob.type });
+    const touch = matchMedia('(pointer: coarse)').matches;
+    if (touch && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; }   // iPhoneは「ビデオを保存」で写真アプリへ
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = state.resultUrl; a.download = r.filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  const nextTick = () => new Promise(r => setTimeout(r, 0));
+
+  async function decodeAudio() {
+    if (state.audioBuffer || !state.audioFile) return state.audioBuffer;
+    const ac = new OfflineAudioContext(2, 1, 48000);   // 48kHzに揃える
+    state.audioBuffer = await ac.decodeAudioData(await state.audioFile.arrayBuffer());
+    return state.audioBuffer;
+  }
+  // 音量の変化をコマごとに先に計算しておく（プレビューと同じ反応）
+  function audioLevels(buf, fps, frames) {
+    const out = new Float32Array(frames);
+    if (!buf) return out;
+    const chs = [...Array(buf.numberOfChannels)].map((_, i) => buf.getChannelData(i));
+    const win = Math.round(buf.sampleRate / fps);
+    let lv = 0;
+    for (let f = 0; f < frames; f++) {
+      const s0 = f * win; let sum = 0, n = 0;
+      for (let i = s0; i < s0 + win && i < buf.length; i++) { let v = 0; for (const c of chs) v += c[i]; v /= chs.length; sum += v * v; n++; }
+      const rms = n ? Math.sqrt(sum / n) : 0;
+      const target = Math.min(1, Math.max(0, (rms - 0.04) * 3.5));
+      lv += (target - lv) * (target > lv ? 0.5 : 0.12) * (60 / fps);
+      out[f] = Math.max(0, Math.min(1, lv));
+    }
+    return out;
+  }
+
+  async function pickVideoConfig(W, H, fps) {
+    const bitrate = Math.round(W * H * fps * 0.16);   // 720×1080@60 ≒ 7.5Mbps
+    // H.264が最優先（iPhone・SNSでそのまま使える）。無いブラウザはVP9で。
+    const cands = ['avc1.640033', 'avc1.64002A', 'avc1.4D0033', 'avc1.42E033', 'avc1.42002A'].map(codec => [{ codec, avc: { format: 'avc' } }, 'avc'])
+      .concat([[{ codec: 'vp09.00.41.08' }, 'vp9'], [{ codec: 'vp09.00.40.08' }, 'vp9']]);
+    for (const [base, mux] of cands) {
+      const cfg = { ...base, width: W, height: H, bitrate, framerate: fps };
+      try { if ((await VideoEncoder.isConfigSupported(cfg)).supported) return { cfg, mux }; } catch (e) {}
+    }
+    return null;
+  }
+  async function pickAudioConfig(ch) {
+    for (const [codec, mux] of [['mp4a.40.2', 'aac'], ['opus', 'opus']]) {
+      const cfg = { codec, sampleRate: 48000, numberOfChannels: ch, bitrate: 192000 };
+      try { if ((await AudioEncoder.isConfigSupported(cfg)).supported) return { cfg, mux }; } catch (e) {}
+    }
+    return null;
+  }
+
+  // 1コマずつ描いてH.264/MP4にする。PCが遅くても指定fpsで滑らかに出る。
+  async function exportFrames(o) {
+    const { W, H } = state, fps = o.fps, total = Math.round(o.duration * fps);
+    const vcfg = await pickVideoConfig(W, H, fps);
+    if (!vcfg) return false;
+    let abuf = null, acfg = null, audioNote = '';
+    if (state.audioFile) {
+      try { abuf = await decodeAudio(); } catch (e) { audioNote = '（音楽ファイルを読めなかったため無音です）'; }
+      if (abuf && window.AudioEncoder) acfg = await pickAudioConfig(Math.min(2, abuf.numberOfChannels));
+      if (abuf && !acfg && window.MediaRecorder && audioDest) return false;   // 音を入れるため実時間録画に切り替え
+      if (abuf && !acfg) audioNote = '（このブラウザは音声の書き出しに未対応のため無音です）';
+      else if (acfg && acfg.mux === 'opus') audioNote = '（音声はOpus形式です。iPhoneの写真アプリでは音が出ないことがあります）';
+    }
+
+    const target = new Mp4Muxer.ArrayBufferTarget();
+    const muxer = new Mp4Muxer.Muxer({
+      target,
+      video: { codec: vcfg.mux, width: W, height: H, frameRate: fps },
+      audio: acfg ? { codec: acfg.mux, numberOfChannels: acfg.cfg.numberOfChannels, sampleRate: 48000 } : undefined,
+      fastStart: 'in-memory',
+      firstTimestampBehavior: 'offset',
+    });
+    let failure = null;
+    const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { failure = e; } });
+    venc.configure(vcfg.cfg);
+
+    const levels = audioLevels(abuf, fps, total);
+    const started = performance.now();
+    for (let i = 0; i < total; i++) {
+      if (failure) throw failure;
+      state.level = levels[i];
+      render(i / fps);
+      const frame = new VideoFrame(view, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+      venc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+      frame.close();
+      while (venc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 2));
+      if (i % 6 === 0) {
+        const p = (i + 1) / total;
+        $('progressBar').style.width = (p * 95) + '%';
+        const el = (performance.now() - started) / 1000;
+        $('status').textContent = `書き出し中… ${i + 1} / ${total} コマ（残り約${Math.max(0, Math.ceil(el / p - el))}秒）`;
+        await nextTick();
+      }
+    }
+    await venc.flush(); venc.close();
+    if (failure) throw failure;
+
+    if (acfg) {
+      $('status').textContent = '音声を書き込み中…';
+      const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => { failure = e; } });
+      aenc.configure(acfg.cfg);
+      const ch = acfg.cfg.numberOfChannels, sr = 48000, len = Math.round(o.duration * sr), block = 4800;
+      const src = [...Array(ch)].map((_, c) => abuf.getChannelData(Math.min(c, abuf.numberOfChannels - 1)));
+      for (let off = 0; off < len; off += block) {
+        const n = Math.min(block, len - off);
+        const data = new Float32Array(n * ch);
+        for (let c = 0; c < ch; c++) {
+          const seg = src[c].subarray(Math.min(off, src[c].length), Math.min(off + n, src[c].length));
+          data.set(seg, c * n);   // 曲が短ければ残りは無音
+        }
+        // 最後の0.3秒だけフェードアウトしてループ時のブツッを防ぐ
+        const fade = sr * 0.3;
+        for (let k = 0; k < n; k++) { const left = len - (off + k); if (left < fade) for (let c = 0; c < ch; c++) data[c * n + k] *= left / fade; }
+        const ad = new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: n, numberOfChannels: ch, timestamp: Math.round(off * 1e6 / sr), data });
+        aenc.encode(ad); ad.close();
+      }
+      await aenc.flush(); aenc.close();
+      if (failure) throw failure;
+    }
+
+    muxer.finalize();
+    const blob = new Blob([target.buffer], { type: 'video/mp4' });
+    const codecNote = vcfg.mux === 'vp9' ? '（映像はVP9形式です。iPhoneや一部SNSで再生できない場合はChromeかEdgeで書き出してください）' : '';
+    showResult(blob, 'mp4', `完成しました。${W}×${H}・${fps}fps・${o.duration}秒のMP4です。${codecNote}${audioNote}`);
+    return true;
+  }
+
+  // 予備：WebCodecsが無いブラウザ向けの実時間録画（fpsは端末の性能次第）
+  function pickMime() {
+    const list = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4',
+      'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    return list.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+  }
+  async function recordRealtime(o) {
+    if (!window.MediaRecorder || !view.captureStream) throw new Error('このブラウザは動画の書き出しに対応していません。PC版 Chrome / Edge / Safari で開いてください。');
+    const mime = pickMime();
+    const stream = view.captureStream(o.fps);
+    if (state.audioBuffer && audioDest) { audioDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr)); }
+    const rec = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 16_000_000 });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    const done = new Promise(r => { rec.onstop = r; });
+    t0 = performance.now();
+    if (state.audioBuffer) playAudio(false);
+    rec.start(250);
+    const start = performance.now(), ms = o.duration * 1000;
+    await new Promise(resolve => {
+      const prog = () => {
+        const p = Math.min(1, (performance.now() - start) / ms);
+        $('progressBar').style.width = (p * 100) + '%';
+        $('status').textContent = `録画中… ${Math.ceil((1 - p) * o.duration)}秒（このタブを開いたままにしてください）`;
+        if (p < 1) requestAnimationFrame(prog); else { rec.stop(); resolve(); }
+      };
+      requestAnimationFrame(prog);
+    });
+    await done;
+    stopAudioPreview();
+    const type = rec.mimeType || mime || 'video/webm';
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    showResult(new Blob(chunks, { type }), ext,
+      'このブラウザはコマ単位の書き出しに未対応のため実時間で録画しました（60fpsにならないことがあります）。' + (ext === 'webm' ? 'WebM形式です。' : ''));
+  }
+
+  $('recordBtn').addEventListener('click', async () => {
+    if ($('recordBtn').disabled) return;
+    const o = opt();
+    stopAudioPreview();
+    if (state.audioFile) { ensureAudioGraph(); actx.resume(); }
+    let lock = null;
+    try { lock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+    await ensureFonts();
+    $('progressBar').style.width = '0%';
+    try {
+      if (window.VideoEncoder && window.VideoFrame && window.Mp4Muxer) {
+        setBusy(true, '書き出し中…'); exporting = true;
+        const ok = await exportFrames(o);
+        exporting = false;
+        if (ok) { setBusy(false); return; }
+      }
+      setBusy(true, '録画中…');
+      await recordRealtime(o);
+    } catch (e) {
+      console.error(e);
+      $('status').textContent = '書き出しに失敗しました：' + (e && e.message || e) + '。サイズかフレームレートを下げて試してください。';
+    } finally {
+      exporting = false; setBusy(false);
+      try { await lock?.release(); } catch (e) {}
+    }
+  });
+
+  // ---------- 起動 ----------
+  const boot = () => { setImage(makeSample(), true); requestAnimationFrame(tick); };
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(boot, boot);
+})();
+</script>
+</body>
+</html>
