@@ -165,7 +165,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     <section class="stage" aria-label="プレビュー">
       <div class="canvas-box" id="dropZone">
         <canvas id="view" width="720" height="1080"></canvas>
-        <div class="drop-hint" id="dropHint" hidden>ここに画像をドロップ</div>
+        <div class="drop-hint" id="dropHint" hidden>画像・音楽をここにドロップ</div>
       </div>
       <div class="stage-bar">
         <span class="tag sample" id="sampleTag">サンプル画像を表示中</span>
@@ -181,8 +181,8 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
         <label class="file-btn">ジャケ写を選ぶ（画像）
           <input type="file" id="imgInput" accept="image/*">
         </label>
-        <label class="file-btn">音楽を追加（任意）
-          <input type="file" id="audioInput" accept="audio/*">
+        <label class="file-btn">音楽を追加（MP3・WAV・M4A／任意）
+          <input type="file" id="audioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,audio/mpeg,audio/wav,audio/x-wav">
         </label>
         <p class="small" id="audioName">音楽を入れると動画に音が入り、音に合わせてジャケットとオーブが脈打ちます。</p>
         <button id="audioPreview" type="button" hidden aria-pressed="false">▶ 音楽付きでプレビュー</button>
@@ -204,6 +204,21 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
         <div class="row"><label for="coverSize">大きさ</label><input type="range" id="coverSize" min="30" max="80" value="56"><output for="coverSize" id="coverSizeOut">56%</output></div>
         <label class="check"><input type="checkbox" id="ring" checked>回転する光のフチ</label>
         <label class="check"><input type="checkbox" id="float" checked>ふわっと呼吸する動き</label>
+      </div>
+
+      <div class="group">
+        <h2>波形エフェクト</h2>
+        <div class="seg" id="waveSeg">
+          <button type="button" data-v="off" aria-pressed="false">なし</button>
+          <button type="button" data-v="bars" aria-pressed="true">バー</button>
+          <button type="button" data-v="line" aria-pressed="false">波線</button>
+          <button type="button" data-v="edge" aria-pressed="false">フチ</button>
+        </div>
+        <div class="row"><label for="wavePos">位置</label><select id="wavePos"><option value="bottom" selected>ジャケの下側</option><option value="center">ジャケの中央</option><option value="top">ジャケの上側</option></select><span></span></div>
+        <div class="row"><label for="waveHeight">高さ</label><input type="range" id="waveHeight" min="20" max="200" value="100"><output for="waveHeight" id="waveHeightOut">100%</output></div>
+        <div class="row"><label for="waveColor">色</label><select id="waveColor"><option value="palette" selected>ジャケの色</option><option value="white">白</option></select><span></span></div>
+        <div class="row"><label for="react">音への反応</label><input type="range" id="react" min="0" max="200" value="100"><output for="react" id="reactOut">100%</output></div>
+        <p class="small">音楽がなくても波形はゆらゆら動きます。音楽を入れると、曲の低音〜高音に合わせて波形と後ろのオーブが動きます。</p>
       </div>
 
       <div class="group">
@@ -261,8 +276,10 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     seed: 7,
     orbs: [], parts: [],
     bg: null, sprites: [],
-    level: 0,
+    level: 0, bass: 0, audioLive: false,
   };
+  const NB = 48;                       // 周波数帯の数
+  state.bands = new Float32Array(NB);
 
   // ---------- 設定値 ----------
   const opt = () => ({
@@ -284,11 +301,16 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     textColor: $('textColor').value,
     textGlow: $('textGlow').checked,
     fps: +$('fps').value,
+    wave: document.querySelector('#waveSeg [aria-pressed="true"]').dataset.v,
+    wavePos: $('wavePos').value,
+    waveHeight: +$('waveHeight').value / 100,
+    waveColor: $('waveColor').value,
+    react: +$('react').value / 100,
   });
 
   const outputs = {
     radius: v => v + '%', coverSize: v => v + '%', orbCount: v => v, orbSize: v => v + '%',
-    glow: v => v + '%', textSize: v => v + '%', particles: v => v, speed: v => '×' + v, duration: v => v + '秒',
+    glow: v => v + '%', waveHeight: v => v + '%', react: v => v + '%', textSize: v => v + '%', particles: v => v, speed: v => '×' + v, duration: v => v + '秒',
   };
   for (const id in outputs) {
     const el = $(id);
@@ -492,6 +514,10 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
       size: 0.05 + r() * r() * 0.22,   // 短辺比
       pulseF: 1 + Math.floor(r() * 3), pulseP: r() * Math.PI * 2,
     }));
+    for (const orb of state.orbs) {
+      const big = Math.min(1, (orb.size - 0.05) / 0.2);
+      orb.band = Math.min(NB - 1, Math.floor(((1 - big) * 0.7 + r() * 0.15) * NB));   // 大きいオーブほど低音に反応
+    }
     state.parts = Array.from({ length: o.particles }, () => ({
       x: r(), y0: r(), n: 1 + Math.floor(r() * 2), swayA: 0.01 + r() * 0.03, swayF: 1 + Math.floor(r() * 3), swayP: r() * 6.28,
       size: 0.6 + r() * 2.2, tw: r() * 6.28, color: Math.floor(r() * pal.length),
@@ -521,6 +547,108 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
 
+  // ---------- 波形エフェクト ----------
+  const bandAt = (u) => {   // u: 0=低音 → 1=高音（補間）
+    const f = Math.max(0, Math.min(1, u)) * (NB - 1), i = Math.floor(f), k = f - i;
+    return state.bands[i] * (1 - k) + state.bands[Math.min(NB - 1, i + 1)] * k;
+  };
+  function waveFill(o, xa, ya, xb, yb) {
+    if (o.waveColor === 'white') return 'rgba(255,255,255,0.95)';
+    const pal = state.palette, g = ctx.createLinearGradient(xa, ya, xb, yb);
+    pal.forEach((c, i) => g.addColorStop(pal.length > 1 ? i / (pal.length - 1) : 0, `rgb(${c.join(',')})`));
+    return g;
+  }
+  const waveGlow = (o) => o.waveColor === 'white' ? 'rgba(255,255,255,0.8)' : `rgb(${state.palette[0].join(',')})`;
+  const level01 = (v, o) => Math.min(1, v * (0.4 + 0.6 * o.react));
+
+  // ジャケの上に重ねる（バー／波線）
+  function drawWaveOnCover(o, x0, y0, cs, P, S) {
+    const pad = cs * 0.08, w = cs - pad * 2, maxH = cs * 0.3 * o.waveHeight;
+    const base = o.wavePos === 'top' ? y0 + cs * 0.12 : o.wavePos === 'center' ? y0 + cs / 2 : y0 + cs * 0.88;
+    // 読みやすいように波形の後ろを少し暗くする
+    const scrimH = maxH * 1.6;
+    const sy = o.wavePos === 'top' ? y0 : o.wavePos === 'center' ? base - scrimH / 2 : y0 + cs - scrimH;
+    const sg = ctx.createLinearGradient(0, sy, 0, sy + scrimH);
+    const dark = 'rgba(0,0,0,0.5)', clear = 'rgba(0,0,0,0)';
+    if (o.wavePos === 'top') { sg.addColorStop(0, dark); sg.addColorStop(1, clear); }
+    else if (o.wavePos === 'center') { sg.addColorStop(0, clear); sg.addColorStop(0.5, dark); sg.addColorStop(1, clear); }
+    else { sg.addColorStop(0, clear); sg.addColorStop(1, dark); }
+    ctx.fillStyle = sg; ctx.fillRect(x0, sy, cs, scrimH);
+
+    ctx.save();
+    ctx.shadowColor = waveGlow(o); ctx.shadowBlur = S * 0.025;
+    if (o.wave === 'bars') {
+      const n = 31, bw = w / n, barW = bw * 0.64;
+      ctx.beginPath();
+      for (let j = 0; j < n; j++) {
+        const u = Math.abs(j - (n - 1) / 2) / ((n - 1) / 2);      // 真ん中が低音、外側が高音
+        const h = Math.max(barW, level01(bandAt(u * 0.85), o) * maxH);
+        const x = x0 + pad + j * bw + (bw - barW) / 2;
+        const y = o.wavePos === 'top' ? base : o.wavePos === 'center' ? base - h / 2 : base - h;
+        if (ctx.roundRect) ctx.roundRect(x, y, barW, h, barW / 2); else ctx.rect(x, y, barW, h);
+      }
+      ctx.fillStyle = waveFill(o, x0 + pad, 0, x0 + pad + w, 0);
+      ctx.fill();
+    } else {
+      // 鏡写しのなめらかな波（3層）
+      const m = 64, dir = o.wavePos === 'top' ? 1 : o.wavePos === 'bottom' ? -1 : 0;
+      ctx.globalCompositeOperation = 'lighter';
+      [[1, 0, 0.9], [0.7, 2.1, 0.55], [0.45, 4.2, 0.35]].forEach(([amp, ph, alpha]) => {
+        const top = [], bot = [];
+        for (let k = 0; k <= m; k++) {
+          const u = Math.abs(k / m * 2 - 1);
+          const taper = Math.pow(Math.sin(Math.PI * k / m), 0.8);
+          const wig = 0.75 + 0.25 * Math.sin(k * 0.55 + P * 6 + ph);
+          const a = level01(bandAt(u * 0.85), o) * maxH * amp * taper * wig;
+          const x = x0 + pad + w * k / m;
+          if (dir === 0) { top.push([x, base - a / 2]); bot.push([x, base + a / 2]); }
+          else { top.push([x, base + dir * a]); bot.push([x, base]); }
+        }
+        const curve = (pts, move) => {
+          if (move) ctx.moveTo(pts[0][0], pts[0][1]); else ctx.lineTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+            ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+          }
+          const l = pts[pts.length - 1]; ctx.lineTo(l[0], l[1]);
+        };
+        ctx.globalAlpha = alpha * 0.35;
+        ctx.fillStyle = waveFill(o, x0 + pad, 0, x0 + pad + w, 0);
+        ctx.beginPath(); curve(top, true); curve(bot.slice().reverse(), false); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = waveFill(o, x0 + pad, 0, x0 + pad + w, 0);
+        ctx.lineWidth = S * 0.004; ctx.lineJoin = 'round';
+        ctx.beginPath(); curve(top, true); ctx.stroke();
+        if (dir === 0) { ctx.beginPath(); curve(bot, true); ctx.stroke(); }
+      });
+    }
+    ctx.restore();
+  }
+
+  // ジャケのフチから外向きに伸びるバー
+  function drawWaveEdge(o, cx, cy, cs, P, S) {
+    const M = 120, hs = cs / 2 + S * 0.03;
+    const n = 2 + (0.5 - Math.min(0.5, o.radius)) / 0.5 * 10;   // 角の丸みに合わせた形
+    const len = cs * 0.14 * o.waveHeight;
+    ctx.save();
+    ctx.shadowColor = waveGlow(o); ctx.shadowBlur = S * 0.02;
+    ctx.lineCap = 'round'; ctx.lineWidth = Math.max(2, (cs * 4 / M) * 0.45);
+    ctx.strokeStyle = o.waveColor === 'white' ? 'rgba(255,255,255,0.95)'
+      : (ctx.createConicGradient ? (() => { const g = ctx.createConicGradient(P, cx, cy); const pal = state.palette; pal.concat([pal[0]]).forEach((c, i, a) => g.addColorStop(i / (a.length - 1), `rgb(${c.join(',')})`)); return g; })() : waveFill(o, cx - hs, cy, cx + hs, cy));
+    ctx.beginPath();
+    for (let k = 0; k < M; k++) {
+      const th = (k / M) * Math.PI * 2 - Math.PI / 2;
+      const c = Math.cos(th), sn = Math.sin(th);
+      const r = hs / Math.pow(Math.pow(Math.abs(c), n) + Math.pow(Math.abs(sn), n), 1 / n);
+      const u = Math.abs(((k / M) * 2) % 2 - 1);    // 上が高音、下が低音で左右対称
+      const l = Math.max(S * 0.004, level01(bandAt(1 - u), o) * len);
+      ctx.moveTo(cx + c * r, cy + sn * r);
+      ctx.lineTo(cx + c * (r + l), cy + sn * (r + l));
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function render(t) {
     const o = opt();
     const { W, H, img } = state;
@@ -528,14 +656,15 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     const TAU = Math.PI * 2;
     const P = ((t % o.duration) / o.duration) * TAU;   // 0→2π で1ループ
     const sp = o.speed;
-    const lv = state.level;
+    const rx = o.react;
+    const lv = state.level * rx, bass = state.bass * rx;
     const hasText = o.title || o.artist;
 
     // 背景（ゆっくりズーム＆回転）
     ctx.save();
     ctx.translate(W / 2, H / 2);
     ctx.rotate(Math.sin(P) * 0.04);
-    const bs = 1.12 + Math.sin(P * sp) * 0.04 + lv * 0.05;
+    const bs = 1.12 + Math.sin(P * sp) * 0.04 + bass * 0.04 * (state.audioLive ? 1 : 0);
     ctx.scale(bs, bs);
     ctx.drawImage(state.bg, -W / 2, -H / 2);
     ctx.restore();
@@ -550,12 +679,13 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     ctx.globalCompositeOperation = 'lighter';
     for (const orb of state.orbs) {
       const a = orb.angle + orb.dir * sp * P;
-      const dist = S * (orb.dist + orb.wobA * Math.sin(orb.wobF * sp * P + orb.wobP));
+      const bv = state.bands[orb.band] * rx;
+      const dist = S * (orb.dist + orb.wobA * Math.sin(orb.wobF * sp * P + orb.wobP)) * (1 + bass * 0.08);
       const x = cx + Math.cos(a) * dist * (W / S) ** 0.5;
       const y = cy + Math.sin(a) * dist * (H / S) ** 0.5;
       const pulse = 0.75 + 0.25 * Math.sin(orb.pulseF * sp * P + orb.pulseP);
-      const size = S * orb.size * o.orbSize * (orb.bokeh ? 1.6 : 1) * (1 + lv * 0.5);
-      ctx.globalAlpha = Math.min(1, (orb.bokeh ? 0.55 : 0.7) * o.glow * pulse * (1 + lv));
+      const size = S * orb.size * o.orbSize * (orb.bokeh ? 1.6 : 1) * (0.85 + bv * bv * 0.9 + bass * 0.15);
+      ctx.globalAlpha = Math.min(1, (orb.bokeh ? 0.55 : 0.7) * o.glow * pulse * (0.65 + bv * 0.9));
       const spr = (orb.bokeh ? state.bokeh : state.sprites)[orb.color];
       ctx.drawImage(spr, x - size / 2, y - size / 2, size, size);
     }
@@ -568,7 +698,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
       const tw = 0.5 + 0.5 * Math.sin(P * 6 + p.tw);
       const edge = Math.sin(prog * Math.PI);
       const [r, g, b] = state.palette[p.color];
-      ctx.globalAlpha = Math.min(1, edge * tw * 0.9 * o.glow);
+      ctx.globalAlpha = Math.min(1, edge * tw * 0.9 * o.glow * (1 + lv));
       ctx.fillStyle = `rgb(${Math.min(255, r + 60)},${Math.min(255, g + 60)},${Math.min(255, b + 60)})`;
       const rad = p.size * S / 1080 * 1.6;
       ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fill();
@@ -614,7 +744,9 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     const sh = ctx.createLinearGradient(sx, y0, sx + cs * 0.5, y0 + cs * 0.5);
     sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sh; ctx.fillRect(x0, y0, cs, cs);
+    if (o.wave === 'bars' || o.wave === 'line') drawWaveOnCover(o, x0, y0, cs, P, S);
     ctx.restore();
+    if (o.wave === 'edge') drawWaveEdge(o, cx, cy, cs, P, S);
 
     // 文字
     if (hasText) {
@@ -658,22 +790,75 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     const n = actx.createBufferSource();
     n.buffer = state.audioBuffer; n.loop = loop;
     n.connect(analyser); n.start(0);
-    srcNode = n;
+    srcNode = n; state.playStart = actx.currentTime; state.playLoop = loop;
   }
   function stopAudio() {
     if (srcNode) { try { srcNode.stop(); } catch (e) {} srcNode.disconnect(); srcNode = null; }
   }
-  function readLevel() {
-    if (!srcNode) { state.level *= 0.9; return; }
-    analyser.getByteTimeDomainData(buf);
-    let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
-    const rms = Math.sqrt(sum / buf.length);
-    const target = Math.min(1, Math.max(0, (rms - 0.04) * 3.5));
-    state.level += (target - state.level) * (target > state.level ? 0.5 : 0.12);
+  // 指定した時刻の音を自前のFFTで解析する。プレビューも書き出しも同じ計算なので見た目が一致する。
+  const FFT_N = 2048;
+  const hann = Float32Array.from({ length: FFT_N }, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT_N - 1)));
+  const fre = new Float32Array(FFT_N), fim = new Float32Array(FFT_N);
+  const rev = (() => { const r = new Uint16Array(FFT_N), bits = Math.log2(FFT_N); for (let i = 0; i < FFT_N; i++) { let x = i, y = 0; for (let b = 0; b < bits; b++) { y = (y << 1) | (x & 1); x >>= 1; } r[i] = y; } return r; })();
+  function fft() {
+    for (let i = 0; i < FFT_N; i++) { const j = rev[i]; if (j > i) { let t = fre[i]; fre[i] = fre[j]; fre[j] = t; t = fim[i]; fim[i] = fim[j]; fim[j] = t; } }
+    for (let size = 2; size <= FFT_N; size <<= 1) {
+      const half = size >> 1, step = -2 * Math.PI / size;
+      for (let i = 0; i < FFT_N; i += size) for (let k = 0; k < half; k++) {
+        const wr = Math.cos(step * k), wi = Math.sin(step * k), a = i + k, b = a + half;
+        const tr = fre[b] * wr - fim[b] * wi, ti = fre[b] * wi + fim[b] * wr;
+        fre[b] = fre[a] - tr; fim[b] = fim[a] - ti; fre[a] += tr; fim[a] += ti;
+      }
+    }
   }
+  let bandBins = null;
+  function analyzeAt(tSec, dtScale) {
+    const b = state.audioBuffer, sr = b.sampleRate;
+    if (!bandBins || bandBins.sr !== sr) {
+      bandBins = { sr, lo: [], hi: [] };
+      for (let k = 0; k < NB; k++) {
+        const f0 = 35 * Math.pow(14000 / 35, k / NB), f1 = 35 * Math.pow(14000 / 35, (k + 1) / NB);
+        const lo = Math.max(1, Math.round(f0 * FFT_N / sr));
+        bandBins.lo.push(lo); bandBins.hi.push(Math.max(lo + 1, Math.round(f1 * FFT_N / sr)));
+      }
+    }
+    const c0 = b.getChannelData(0), c1 = b.numberOfChannels > 1 ? b.getChannelData(1) : c0;
+    const start = Math.floor(tSec * sr) - FFT_N / 2;
+    let sum = 0;
+    for (let i = 0; i < FFT_N; i++) {
+      const idx = start + i;
+      const v = idx >= 0 && idx < b.length ? (c0[idx] + c1[idx]) * 0.5 : 0;
+      sum += v * v; fre[i] = v * hann[i]; fim[i] = 0;
+    }
+    fft();
+    for (let k = 0; k < NB; k++) {
+      let mx = 0;
+      for (let j = bandBins.lo[k]; j < bandBins.hi[k]; j++) mx = Math.max(mx, fre[j] * fre[j] + fim[j] * fim[j]);
+      const db = 10 * Math.log10(mx * 16 / (FFT_N * FFT_N) + 1e-12);
+      const v = Math.max(0, Math.min(1, (db + 58 + k * 0.35) / 52));   // 高音ほど小さいので少し持ち上げる
+      const s0 = state.bands[k];
+      state.bands[k] = Math.max(0, Math.min(1, s0 + (v - s0) * Math.min(1, (v > s0 ? 0.6 : 0.16) * dtScale)));
+    }
+    const rms = Math.sqrt(sum / FFT_N);
+    const target = Math.min(1, Math.max(0, (rms - 0.04) * 3.5));
+    state.level += (target - state.level) * Math.min(1, (target > state.level ? 0.5 : 0.12) * dtScale);
+    let bs = 0; for (let k = 0; k < 6; k++) bs += state.bands[k]; state.bass = bs / 6;
+    state.audioLive = true;
+  }
+  // 音楽がない（止まっている）ときの、ループに合わせたゆらぎ
+  function idleAt(P, dtScale) {
+    for (let k = 0; k < NB; k++) {
+      const v = 0.32 + 0.16 * Math.sin(P * 2 + k * 0.45) + 0.1 * Math.sin(P * 5 - k * 0.9) + 0.06 * Math.sin(P * 11 + k * 2.3) - k / NB * 0.12;
+      state.bands[k] += (Math.max(0, v) - state.bands[k]) * Math.min(1, 0.2 * dtScale);
+    }
+    state.level *= 0.9; state.bass = state.bands[1] * 0.6; state.audioLive = false;
+  }
+  const phaseOf = (t) => ((t % opt().duration) / opt().duration) * Math.PI * 2;
 
-  $('audioInput').addEventListener('change', async (e) => {
-    const f = e.target.files[0]; if (!f) return;
+  const isAudioFile = (f) => f && (f.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.name));
+  $('audioInput').addEventListener('change', (e) => loadAudio(e.target.files[0]));
+  async function loadAudio(f) {
+    if (!f) return;
     stopAudioPreview();
     state.audioFile = f; state.audioBuffer = null;
     $('audioName').textContent = '♪ ' + f.name + '（読み込み中…）';
@@ -683,9 +868,9 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
       $('audioPreview').hidden = false;
     } catch (err) {
       state.audioFile = null;
-      $('audioName').textContent = 'この音楽ファイルは読み込めませんでした。MP3 / M4A / WAV を試してください。';
+      $('audioName').textContent = 'この音楽ファイルは読み込めませんでした。MP3 / WAV / M4A を試してください。';
     }
-  });
+  }
   $('audioPreview').addEventListener('click', async () => {
     ensureAudioGraph(); actx.resume();
     const btn = $('audioPreview');
@@ -694,13 +879,18 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
   });
 
   // ---------- ループ ----------
-  let t0 = performance.now(), frames = 0, lastFps = performance.now();
+  let t0 = performance.now(), frames = 0, lastFps = performance.now(), lastNow = performance.now();
   let exporting = false;
   function tick(now) {
     requestAnimationFrame(tick);
     if (exporting) return;   // 書き出し中はエクスポート側が描画する
-    readLevel();
-    render((now - t0) / 1000);
+    const t = (now - t0) / 1000, dt = Math.min(4, (now - lastNow) / (1000 / 60)); lastNow = now;
+    if (srcNode && state.audioBuffer) {
+      let ta = actx.currentTime - state.playStart;
+      if (state.playLoop) ta %= state.audioBuffer.duration;
+      analyzeAt(ta, dt);
+    } else idleAt(phaseOf(t), dt);
+    render(t);
     frames++;
     if (now - lastFps > 1000) { $('fpsTag').textContent = 'preview ' + Math.round(frames * 1000 / (now - lastFps)) + ' fps'; frames = 0; lastFps = now; }
   }
@@ -717,12 +907,16 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
   const dz = $('dropZone');
   dz.addEventListener('dragover', e => { e.preventDefault(); $('dropHint').hidden = false; });
   dz.addEventListener('dragleave', () => { $('dropHint').hidden = true; });
-  dz.addEventListener('drop', e => { e.preventDefault(); $('dropHint').hidden = true; loadFile(e.dataTransfer.files[0]); });
-  window.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])][0]; if (f) loadFile(f); });
+  const routeFile = (f) => { if (isAudioFile(f)) loadAudio(f); else loadFile(f); };
+  dz.addEventListener('drop', e => { e.preventDefault(); $('dropHint').hidden = true; [...e.dataTransfer.files].forEach(routeFile); });
+  window.addEventListener('paste', e => { [...(e.clipboardData?.files || [])].forEach(routeFile); });
 
   document.querySelectorAll('#aspectSeg button').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('#aspectSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     setSize(+b.dataset.w, +b.dataset.h);
+  }));
+  document.querySelectorAll('#waveSeg button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#waveSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   }));
   $('reseed').addEventListener('click', () => { state.seed = (Math.random() * 1e9) | 0; buildScene(); });
 
@@ -778,24 +972,6 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     state.audioBuffer = await ac.decodeAudioData(await state.audioFile.arrayBuffer());
     return state.audioBuffer;
   }
-  // 音量の変化をコマごとに先に計算しておく（プレビューと同じ反応）
-  function audioLevels(buf, fps, frames) {
-    const out = new Float32Array(frames);
-    if (!buf) return out;
-    const chs = [...Array(buf.numberOfChannels)].map((_, i) => buf.getChannelData(i));
-    const win = Math.round(buf.sampleRate / fps);
-    let lv = 0;
-    for (let f = 0; f < frames; f++) {
-      const s0 = f * win; let sum = 0, n = 0;
-      for (let i = s0; i < s0 + win && i < buf.length; i++) { let v = 0; for (const c of chs) v += c[i]; v /= chs.length; sum += v * v; n++; }
-      const rms = n ? Math.sqrt(sum / n) : 0;
-      const target = Math.min(1, Math.max(0, (rms - 0.04) * 3.5));
-      lv += (target - lv) * (target > lv ? 0.5 : 0.12) * (60 / fps);
-      out[f] = Math.max(0, Math.min(1, lv));
-    }
-    return out;
-  }
-
   async function pickVideoConfig(W, H, fps) {
     const bitrate = Math.round(W * H * fps * 0.16);   // 720×1080@60 ≒ 7.5Mbps
     // H.264が最優先（iPhone・SNSでそのまま使える）。無いブラウザはVP9で。
@@ -841,11 +1017,11 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { failure = e; } });
     venc.configure(vcfg.cfg);
 
-    const levels = audioLevels(abuf, fps, total);
+    state.bands.fill(0); state.level = 0;
     const started = performance.now();
     for (let i = 0; i < total; i++) {
       if (failure) throw failure;
-      state.level = levels[i];
+      if (abuf) analyzeAt(i / fps, 60 / fps); else idleAt(phaseOf(i / fps), 60 / fps);
       render(i / fps);
       const frame = new VideoFrame(view, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       venc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
