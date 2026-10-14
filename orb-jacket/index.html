@@ -214,7 +214,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
           <button type="button" data-v="line" aria-pressed="false">波線</button>
           <button type="button" data-v="edge" aria-pressed="false">フチ</button>
         </div>
-        <div class="row"><label for="wavePos">位置</label><select id="wavePos"><option value="bottom" selected>ジャケの下側</option><option value="center">ジャケの中央</option><option value="top">ジャケの上側</option></select><span></span></div>
+        <div class="row"><label for="wavePos">位置</label><select id="wavePos"><option value="above" selected>ジャケの上に乗せる</option><option value="below">ジャケの下に出す</option><option value="bottom">ジャケに重ねる（下）</option><option value="center">ジャケに重ねる（中央）</option><option value="top">ジャケに重ねる（上）</option></select><span></span></div>
         <div class="row"><label for="waveHeight">高さ</label><input type="range" id="waveHeight" min="20" max="200" value="100"><output for="waveHeight" id="waveHeightOut">100%</output></div>
         <div class="row"><label for="waveColor">色</label><select id="waveColor"><option value="palette" selected>ジャケの色</option><option value="white">白</option></select><span></span></div>
         <div class="row"><label for="react">音への反応</label><input type="range" id="react" min="0" max="200" value="100"><output for="react" id="reactOut">100%</output></div>
@@ -562,9 +562,15 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
   const level01 = (v, o) => Math.min(1, v * (0.4 + 0.6 * o.react));
 
   // ジャケの上に重ねる（バー／波線）
+  const waveOutside = (o) => o.wavePos === 'above' || o.wavePos === 'below';
   function drawWaveOnCover(o, x0, y0, cs, P, S) {
-    const pad = cs * 0.08, w = cs - pad * 2, maxH = cs * 0.3 * o.waveHeight;
-    const base = o.wavePos === 'top' ? y0 + cs * 0.12 : o.wavePos === 'center' ? y0 + cs / 2 : y0 + cs * 0.88;
+    const out = waveOutside(o);
+    const pad = cs * (out ? 0.02 : 0.08), w = cs - pad * 2, maxH = cs * 0.3 * o.waveHeight;
+    const gap = S * 0.03;
+    const base = { above: y0 - gap, below: y0 + cs + gap, top: y0 + cs * 0.12, center: y0 + cs / 2, bottom: y0 + cs * 0.88 }[o.wavePos];
+    const grow = { above: 'up', bottom: 'up', below: 'down', top: 'down', center: 'mid' }[o.wavePos];
+    if (!out) drawScrim();
+    function drawScrim() {
     // 読みやすいように波形の後ろを少し暗くする
     const scrimH = maxH * 1.6;
     const sy = o.wavePos === 'top' ? y0 : o.wavePos === 'center' ? base - scrimH / 2 : y0 + cs - scrimH;
@@ -574,6 +580,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     else if (o.wavePos === 'center') { sg.addColorStop(0, clear); sg.addColorStop(0.5, dark); sg.addColorStop(1, clear); }
     else { sg.addColorStop(0, clear); sg.addColorStop(1, dark); }
     ctx.fillStyle = sg; ctx.fillRect(x0, sy, cs, scrimH);
+    }
 
     ctx.save();
     ctx.shadowColor = waveGlow(o); ctx.shadowBlur = S * 0.025;
@@ -584,14 +591,14 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
         const u = Math.abs(j - (n - 1) / 2) / ((n - 1) / 2);      // 真ん中が低音、外側が高音
         const h = Math.max(barW, level01(bandAt(u * 0.85), o) * maxH);
         const x = x0 + pad + j * bw + (bw - barW) / 2;
-        const y = o.wavePos === 'top' ? base : o.wavePos === 'center' ? base - h / 2 : base - h;
+        const y = grow === 'down' ? base : grow === 'mid' ? base - h / 2 : base - h;
         if (ctx.roundRect) ctx.roundRect(x, y, barW, h, barW / 2); else ctx.rect(x, y, barW, h);
       }
       ctx.fillStyle = waveFill(o, x0 + pad, 0, x0 + pad + w, 0);
       ctx.fill();
     } else {
       // 鏡写しのなめらかな波（3層）
-      const m = 64, dir = o.wavePos === 'top' ? 1 : o.wavePos === 'bottom' ? -1 : 0;
+      const m = 64, dir = grow === 'down' ? 1 : grow === 'up' ? -1 : 0;
       ctx.globalCompositeOperation = 'lighter';
       [[1, 0, 0.9], [0.7, 2.1, 0.55], [0.45, 4.2, 0.35]].forEach(([amp, ph, alpha]) => {
         const top = [], bot = [];
@@ -744,8 +751,9 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     const sh = ctx.createLinearGradient(sx, y0, sx + cs * 0.5, y0 + cs * 0.5);
     sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sh; ctx.fillRect(x0, y0, cs, cs);
-    if (o.wave === 'bars' || o.wave === 'line') drawWaveOnCover(o, x0, y0, cs, P, S);
+    if ((o.wave === 'bars' || o.wave === 'line') && !waveOutside(o)) drawWaveOnCover(o, x0, y0, cs, P, S);
     ctx.restore();
+    if ((o.wave === 'bars' || o.wave === 'line') && waveOutside(o)) drawWaveOnCover(o, x0, y0, cs, P, S);
     if (o.wave === 'edge') drawWaveEdge(o, cx, cy, cs, P, S);
 
     // 文字
@@ -755,6 +763,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
       ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = S * 0.02;
       if (o.textGlow) { ctx.shadowColor = `rgba(${state.palette[0].join(',')},0.9)`; ctx.shadowBlur = S * 0.03; }
       let ty = cy + S * o.coverSize / 2 + S * 0.06;
+      if ((o.wave === 'bars' || o.wave === 'line') && o.wavePos === 'below') ty += S * o.coverSize * 0.3 * o.waveHeight + S * 0.02;
       const setSpacing = (f, px) => { if ('letterSpacing' in ctx) ctx.letterSpacing = (f.spacing || 0) * px + 'px'; };
       if (o.title) {
         const px = Math.round(S * 0.05 * o.textSize);
