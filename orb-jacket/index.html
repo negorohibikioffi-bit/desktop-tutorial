@@ -49,7 +49,7 @@ h1 {
 }
 header p { margin: 0; color: var(--muted); }
 .main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
-@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
 
 .stage {
   background: #000;
@@ -134,13 +134,24 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
 .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
 .result { display: grid; gap: 10px; }
 .result video { width: 100%; border-radius: 8px; background: #000; }
-.result a.dl {
-  text-align: center; text-decoration: none; color: #160f24; font-weight: 700;
-  background: var(--ok); border-radius: 8px; padding: 10px;
+.result .dl {
+  color: #160f24; font-weight: 700; font-size: 15px;
+  background: var(--ok); border: 0; border-radius: 8px; padding: 12px;
 }
 .swatches { display: flex; gap: 6px; }
 .swatches span { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255,255,255,.15); }
-@media (prefers-reduced-motion: reduce) { button, .file-btn { transition: none; } }
+@media (max-width: 900px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .stage { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; padding: 10px; }
+  .canvas-box { min-height: 0; }
+  canvas#view { max-height: 40vh; }
+  .stage-bar { gap: 6px; }
+  #fpsTag { display: none; }
+  .panel { padding: 14px; }
+  .row { grid-template-columns: 84px minmax(0, 1fr) 44px; }
+  input[type="range"] { height: 28px; }
+  button, .file-btn { min-height: 44px; }
+}@media (prefers-reduced-motion: reduce) { button, .file-btn { transition: none; } }
 </style>
 </head>
 <body>
@@ -223,13 +234,13 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
         <h2>書き出し</h2>
         <div class="row"><label for="fps">フレームレート</label><select id="fps"><option value="60" selected>60fps</option><option value="30">30fps</option></select><span></span></div>
         <div class="row"><label for="duration">長さ</label><input type="range" id="duration" min="5" max="60" value="10"><output for="duration" id="durationOut">10秒</output></div>
-        <p class="small">1コマずつ描いてMP4に書き出すので、PCの性能に関係なく指定したフレームレートでカクつきのない動画になります。動きは指定した長さでぴったり1周し、ループ再生してもつなぎ目が出ません。</p>
+        <p class="small">書き出し中は画面を消さず、このページを開いたままにしてください。1コマずつ描いてMP4に書き出すので、PCの性能に関係なく指定したフレームレートでカクつきのない動画になります。動きは指定した長さでぴったり1周し、ループ再生してもつなぎ目が出ません。</p>
         <button type="button" class="primary" id="recordBtn">動画を生成</button>
         <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
         <p class="small" id="status">準備OK</p>
         <div class="result" id="result" hidden>
           <video id="resultVideo" controls loop playsinline></video>
-          <a class="dl" id="downloadLink" href="#">動画を保存</a>
+          <button type="button" class="dl" id="saveBtn">動画を保存</button>
         </div>
       </div>
     </aside>
@@ -434,6 +445,11 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     return c;
   }
 
+  const canFilter = (() => {
+    const c = document.createElement('canvas').getContext('2d');
+    if (!('filter' in c)) return false;
+    c.filter = 'blur(2px)'; return c.filter === 'blur(2px)';
+  })();
   function buildBg() {
     const { W, H, img } = state;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -441,9 +457,18 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     x.fillStyle = '#05040a'; x.fillRect(0, 0, W, H);
     const scale = Math.max(W, H) * 1.35 / Math.min(img.width, img.height);
     const iw = img.width * scale, ih = img.height * scale;
-    x.filter = `blur(${Math.round(Math.max(W, H) / 22)}px) saturate(1.4)`;
-    x.drawImage(img, (W - iw) / 2, (H - ih) / 2, iw, ih);
-    x.filter = 'none';
+    if (canFilter) {
+      x.filter = `blur(${Math.round(Math.max(W, H) / 22)}px) saturate(1.4)`;
+      x.drawImage(img, (W - iw) / 2, (H - ih) / 2, iw, ih);
+      x.filter = 'none';
+    } else {
+      // 縮小→拡大でぼかす
+      const t = document.createElement('canvas'); t.width = Math.ceil(W / 24); t.height = Math.ceil(H / 24);
+      const tx = t.getContext('2d');
+      tx.drawImage(img, (t.width - iw / 24) / 2, (t.height - ih / 24) / 2, iw / 24, ih / 24);
+      x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+      x.drawImage(t, 0, 0, W, H);
+    }
     x.fillStyle = 'rgba(5,4,12,0.55)'; x.fillRect(0, 0, W, H);
     const vg = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.75);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.75)');
@@ -618,18 +643,28 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
   }
 
   // ---------- 音声 ----------
-  let audioEl = null, actx = null, analyser = null, audioDest = null, buf = null;
+  // <audio>要素を使わず、デコードした音をWeb Audioで鳴らす（iPhone・アプリ内でも動く）
+  let actx = null, analyser = null, audioDest = null, buf = null, srcNode = null;
   function ensureAudioGraph() {
-    if (actx || !audioEl) return;
+    if (actx) return;
     actx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = actx.createMediaElementSource(audioEl);
     analyser = actx.createAnalyser(); analyser.fftSize = 1024;
     buf = new Uint8Array(analyser.fftSize);
-    audioDest = actx.createMediaStreamDestination();
-    src.connect(analyser); analyser.connect(actx.destination); analyser.connect(audioDest);
+    analyser.connect(actx.destination);
+    if (actx.createMediaStreamDestination) { audioDest = actx.createMediaStreamDestination(); analyser.connect(audioDest); }
+  }
+  function playAudio(loop) {
+    stopAudio();
+    const n = actx.createBufferSource();
+    n.buffer = state.audioBuffer; n.loop = loop;
+    n.connect(analyser); n.start(0);
+    srcNode = n;
+  }
+  function stopAudio() {
+    if (srcNode) { try { srcNode.stop(); } catch (e) {} srcNode.disconnect(); srcNode = null; }
   }
   function readLevel() {
-    if (!analyser || !audioEl || audioEl.paused) { state.level *= 0.9; return; }
+    if (!srcNode) { state.level *= 0.9; return; }
     analyser.getByteTimeDomainData(buf);
     let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
     const rms = Math.sqrt(sum / buf.length);
@@ -637,19 +672,25 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     state.level += (target - state.level) * (target > state.level ? 0.5 : 0.12);
   }
 
-  $('audioInput').addEventListener('change', (e) => {
+  $('audioInput').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    if (!audioEl) { audioEl = new Audio(); audioEl.loop = true; }
-    audioEl.src = URL.createObjectURL(f);
+    stopAudioPreview();
     state.audioFile = f; state.audioBuffer = null;
-    $('audioName').textContent = '♪ ' + f.name;
-    $('audioPreview').hidden = false;
+    $('audioName').textContent = '♪ ' + f.name + '（読み込み中…）';
+    try {
+      await decodeAudio();
+      $('audioName').textContent = `♪ ${f.name}（${state.audioBuffer.duration.toFixed(1)}秒）`;
+      $('audioPreview').hidden = false;
+    } catch (err) {
+      state.audioFile = null;
+      $('audioName').textContent = 'この音楽ファイルは読み込めませんでした。MP3 / M4A / WAV を試してください。';
+    }
   });
   $('audioPreview').addEventListener('click', async () => {
-    ensureAudioGraph(); await actx.resume();
+    ensureAudioGraph(); actx.resume();
     const btn = $('audioPreview');
-    if (audioEl.paused) { audioEl.currentTime = 0; t0 = performance.now(); await audioEl.play(); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '■ プレビューを止める'; }
-    else { audioEl.pause(); btn.setAttribute('aria-pressed', 'false'); btn.textContent = '▶ 音楽付きでプレビュー'; }
+    if (!srcNode) { t0 = performance.now(); playAudio(true); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '■ プレビューを止める'; }
+    else stopAudioPreview();
   });
 
   // ---------- ループ ----------
@@ -691,19 +732,44 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     if (busy) $('result').hidden = true;
   };
   const stopAudioPreview = () => {
-    if (!audioEl) return;
-    audioEl.pause(); $('audioPreview').setAttribute('aria-pressed', 'false'); $('audioPreview').textContent = '▶ 音楽付きでプレビュー';
+    stopAudio(); $('audioPreview').setAttribute('aria-pressed', 'false'); $('audioPreview').textContent = '▶ 音楽付きでプレビュー';
   };
   function showResult(blob, ext, note) {
     const url = URL.createObjectURL(blob);
+    if (state.resultUrl) URL.revokeObjectURL(state.resultUrl);
+    state.resultUrl = url;
+    state.result = { blob, filename: `orb-jacket-${state.W}x${state.H}-${opt().fps}fps.${ext}` };
+    $('resultVideo').hidden = false;
     $('resultVideo').src = url;
-    const a = $('downloadLink');
-    a.href = url; a.download = `orb-jacket-${state.W}x${state.H}-${opt().fps}fps.${ext}`;
-    a.textContent = `動画を保存（.${ext}・${(blob.size / 1048576).toFixed(1)}MB）`;
+    $('saveBtn').textContent = `動画を保存（.${ext}・${(blob.size / 1048576).toFixed(1)}MB）`;
     $('result').hidden = false;
     $('progressBar').style.width = '100%';
     $('status').textContent = note;
   }
+  $('resultVideo').addEventListener('error', () => { $('resultVideo').hidden = true; });   // 再生できない環境ではプレビューだけ隠す
+  const claudeDownloads = window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  $('saveBtn').addEventListener('click', async () => {
+    const r = state.result; if (!r) return;
+    const dl = await claudeDownloads;
+    if (dl) {
+      try { await dl.save({ filename: r.filename, data: r.blob }); $('status').textContent = '保存しました。'; }
+      catch (e) {
+        if (e?.code === 'declined') $('status').textContent = '保存をキャンセルしました。';
+        else if (e?.code === 'rate_limited') $('status').textContent = '少し待ってからもう一度押してください。';
+        else $('status').textContent = 'ここでは保存できませんでした（' + (e?.code || e) + '）。';
+      }
+      return;
+    }
+    const file = new File([r.blob], r.filename, { type: r.blob.type });
+    const touch = matchMedia('(pointer: coarse)').matches;
+    if (touch && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; }   // iPhoneは「ビデオを保存」で写真アプリへ
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = state.resultUrl; a.download = r.filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
   const nextTick = () => new Promise(r => setTimeout(r, 0));
 
   async function decodeAudio() {
@@ -758,6 +824,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     if (state.audioFile) {
       try { abuf = await decodeAudio(); } catch (e) { audioNote = '（音楽ファイルを読めなかったため無音です）'; }
       if (abuf && window.AudioEncoder) acfg = await pickAudioConfig(Math.min(2, abuf.numberOfChannels));
+      if (abuf && !acfg && window.MediaRecorder && audioDest) return false;   // 音を入れるため実時間録画に切り替え
       if (abuf && !acfg) audioNote = '（このブラウザは音声の書き出しに未対応のため無音です）';
       else if (acfg && acfg.mux === 'opus') audioNote = '（音声はOpus形式です。iPhoneの写真アプリでは音が出ないことがあります）';
     }
@@ -835,13 +902,13 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     if (!window.MediaRecorder || !view.captureStream) throw new Error('このブラウザは動画の書き出しに対応していません。PC版 Chrome / Edge / Safari で開いてください。');
     const mime = pickMime();
     const stream = view.captureStream(o.fps);
-    if (audioEl) { ensureAudioGraph(); await actx.resume(); audioDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr)); }
+    if (state.audioBuffer && audioDest) { audioDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr)); }
     const rec = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 16_000_000 });
     const chunks = [];
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     const done = new Promise(r => { rec.onstop = r; });
     t0 = performance.now();
-    if (audioEl) { audioEl.currentTime = 0; await audioEl.play(); }
+    if (state.audioBuffer) playAudio(false);
     rec.start(250);
     const start = performance.now(), ms = o.duration * 1000;
     await new Promise(resolve => {
@@ -865,6 +932,9 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
     if ($('recordBtn').disabled) return;
     const o = opt();
     stopAudioPreview();
+    if (state.audioFile) { ensureAudioGraph(); actx.resume(); }
+    let lock = null;
+    try { lock = await navigator.wakeLock?.request('screen'); } catch (e) {}
     await ensureFonts();
     $('progressBar').style.width = '0%';
     try {
@@ -881,6 +951,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
       $('status').textContent = '書き出しに失敗しました：' + (e && e.message || e) + '。サイズかフレームレートを下げて試してください。';
     } finally {
       exporting = false; setBusy(false);
+      try { await lock?.release(); } catch (e) {}
     }
   });
 

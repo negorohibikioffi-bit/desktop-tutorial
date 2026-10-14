@@ -6,7 +6,8 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ## Orb Jacket
 
-`orb-jacket/index.html` をブラウザ（PC版 Chrome / Edge / Safari 推奨）で開くと使えます。
+- スマホ：claude.ai の公開ページ https://claude.ai/artifact/DK2VnHq7gpFbuQYya8R1Zt を開く（Claudeアプリ内でも可）
+- PC：`orb-jacket/index.html` を Chrome / Edge で開く
 
 1. 「ジャケ写を選ぶ」で画像を読み込む（ドラッグ＆ドロップ・貼り付けでもOK）
 2. 角の丸み・オーブの数や輝き・サイズ（2:3 = 720×1080 / 1:1 / 9:16 / 16:9）などを調整
