@@ -1,0 +1,946 @@
+<title>宅建アイランド</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* layout: 島の掲示板。ひとつの縦長カラムに、花畑マップ→モード選択→問題ボード→解説カードを積む */
+:root{
+  --bg:#cdeabb; --bg-dot:#bfe2aa; --ink:#5a4535; --ink-soft:#8b7663;
+  --card:#fffaee; --card-line:#ecdfc4; --paper:#fff4d9;
+  --leaf:#17b192; --leaf-deep:#0e8a71; --leaf-pale:#d4f3ea;
+  --wood:#c08a55; --wood-deep:#93623a; --wood-pale:#f1dcc0;
+  --ok:#36a957; --ok-pale:#dcf3df; --ng:#e3635a; --ng-pale:#fbe1dd;
+  --gold:#efb93c; --soil:#c9a27a; --soil-deep:#a9805a;
+  --c-mori:#f28fae; --c-kawa:#5fb2ee; --c-hama:#f0bd3e; --c-machi:#f2924a;
+  --shadow:0 3px 0 rgba(120,90,50,.18); --on-solid:#ffffff;
+  --f-display:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  --f-body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16302a; --bg-dot:#1b3a32; --ink:#f4ead6; --ink-soft:#c2b69e;
+  --card:#22382f; --card-line:#35503f; --paper:#2b4236;
+  --leaf:#3fd7b6; --leaf-deep:#7fe6cf; --leaf-pale:#1d4a40;
+  --wood:#c99662; --wood-deep:#e0b07a; --wood-pale:#3b3428;
+  --ok:#6fd58c; --ok-pale:#21452e; --ng:#ff8a7f; --ng-pale:#4a2a29;
+  --gold:#f5c95a; --soil:#5c4a37; --soil-deep:#7a6249;
+  --shadow:0 3px 0 rgba(0,0,0,.35); --on-solid:#10261d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#16302a; --bg-dot:#1b3a32; --ink:#f4ead6; --ink-soft:#c2b69e;
+  --card:#22382f; --card-line:#35503f; --paper:#2b4236;
+  --leaf:#3fd7b6; --leaf-deep:#7fe6cf; --leaf-pale:#1d4a40;
+  --wood:#c99662; --wood-deep:#e0b07a; --wood-pale:#3b3428;
+  --ok:#6fd58c; --ok-pale:#21452e; --ng:#ff8a7f; --ng-pale:#4a2a29;
+  --gold:#f5c95a; --soil:#5c4a37; --soil-deep:#7a6249;
+  --shadow:0 3px 0 rgba(0,0,0,.35); --on-solid:#10261d; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-weight:500;font-size:15px;line-height:1.75;
+  background-image:radial-gradient(var(--bg-dot) 18%,transparent 19%),radial-gradient(var(--bg-dot) 18%,transparent 19%);
+  background-size:28px 28px;background-position:0 0,14px 14px;min-height:100vh}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--leaf);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 64px;display:flex;flex-direction:column;gap:18px}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:10px;justify-content:space-between;padding-block:8px}
+.sign{display:flex;align-items:center;gap:8px;background:var(--wood);color:#fff8ea;border-radius:14px 14px 14px 14px;padding:6px 14px 6px 10px;box-shadow:0 4px 0 var(--wood-deep);font-family:var(--f-display);font-size:18px;letter-spacing:.04em;border:none}
+.sign svg{width:26px;height:26px}
+.acorn{display:flex;align-items:center;gap:6px;background:var(--card);border:2px solid var(--card-line);border-radius:999px;padding:3px 12px 3px 6px;font-weight:900;font-variant-numeric:tabular-nums;box-shadow:var(--shadow)}
+.acorn svg{width:22px;height:22px}
+.iconbtn{background:var(--card);border:2px solid var(--card-line);border-radius:999px;width:38px;height:38px;display:grid;place-items:center;box-shadow:var(--shadow)}
+.iconbtn svg{width:20px;height:20px}
+.toprow{display:flex;gap:8px;align-items:center}
+
+/* dialog (mascot speech) */
+.talk{display:flex;gap:10px;align-items:flex-end}
+.talk .kapi{flex:0 0 84px;width:84px;height:84px}
+.bubble{position:relative;flex:1;min-width:0;background:var(--paper);border-radius:30px 34px 32px 28px/34px 30px 34px 30px;padding:22px 20px 16px;box-shadow:var(--shadow);font-size:16px;font-weight:700}
+.bubble .name{position:absolute;top:-14px;left:18px;background:var(--leaf);color:#fff;border-radius:999px;padding:1px 14px;font-size:13px;font-family:var(--f-display);transform:rotate(-4deg);letter-spacing:.06em}
+.bubble .next{position:absolute;right:18px;bottom:6px;color:var(--wood);font-size:12px;animation:bob 1s ease-in-out infinite}
+.bubble small{display:block;font-weight:500;font-size:13.5px;color:var(--ink-soft);margin-top:4px}
+@keyframes bob{50%{transform:translateY(3px)}}
+
+/* section titles */
+h2{font-family:var(--f-display);font-size:19px;margin:0;letter-spacing:.03em;text-wrap:balance;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+h2 .tag{font-family:var(--f-body);font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:0}
+.panel{background:var(--card);border:2px solid var(--card-line);border-radius:26px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;min-width:0}
+
+/* garden */
+.garden{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.garden{grid-template-columns:1fr}}
+.plot{background:var(--wood-pale);border-radius:20px;padding:10px 10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.plot.machi{grid-column:1/-1}
+.plot-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:900;font-size:14px}
+.plot-h .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.plot-h span.c{font-weight:700;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
+.tile{position:relative;aspect-ratio:1;max-width:100%;border:none;border-radius:14px;background:var(--soil);box-shadow:inset 0 -4px 0 var(--soil-deep);padding:0;display:grid;place-items:center;transition:transform .15s}
+.tile:hover{transform:translateY(-2px)}
+.tile svg{width:78%;height:78%}
+.tile .no{position:absolute;left:4px;top:1px;font-size:10px;font-weight:900;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.25);font-variant-numeric:tabular-nums}
+.tile.due::after{content:"";position:absolute;right:4px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--ng);box-shadow:0 0 0 2px var(--soil)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-soft)}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend svg{width:22px;height:22px;background:var(--soil);border-radius:6px}
+
+/* modes */
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.mode{display:flex;gap:12px;align-items:center;text-align:left;background:var(--card);border:2px solid var(--card-line);border-radius:22px;padding:12px 14px;box-shadow:0 4px 0 var(--card-line);transition:transform .1s,box-shadow .1s}
+.mode:active{transform:translateY(3px);box-shadow:0 1px 0 var(--card-line)}
+.mode .ic{flex:0 0 46px;height:46px;border-radius:16px;display:grid;place-items:center}
+.mode .ic svg{width:30px;height:30px}
+.mode b{display:block;font-size:16px;font-weight:900}
+.mode span{font-size:12.5px;color:var(--ink-soft);line-height:1.5;display:block}
+.mode.primary{background:var(--leaf);border-color:var(--leaf-deep);box-shadow:0 4px 0 var(--leaf-deep);color:#fff}
+.mode.primary span{color:#e9fff8}
+.mode.primary .ic{background:rgba(255,255,255,.22)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--card-line);background:var(--card);border-radius:999px;padding:4px 14px;font-weight:700;font-size:13.5px;display:flex;gap:6px;align-items:center;box-shadow:0 3px 0 var(--card-line)}
+.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stat{background:var(--paper);border-radius:18px;padding:8px 4px}
+.stat b{display:block;font-family:var(--f-display);font-size:24px;line-height:1.2;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--ink-soft)}
+
+/* quiz */
+.qbar{display:flex;align-items:center;gap:10px}
+.path{flex:1;height:14px;background:var(--wood-pale);border-radius:999px;position:relative;overflow:hidden}
+.path i{position:absolute;inset:0 auto 0 0;background:repeating-linear-gradient(90deg,var(--leaf) 0 10px,var(--leaf-deep) 10px 12px);border-radius:999px;transition:width .4s}
+.qcount{font-weight:900;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.back{background:none;border:none;font-weight:700;color:var(--ink-soft);padding:4px 2px;font-size:14px}
+.board{background:var(--card);border-radius:24px;border:3px solid var(--wood);box-shadow:0 5px 0 var(--wood-deep);padding:16px 16px 18px;display:flex;flex-direction:column;gap:12px;position:relative;min-width:0}
+.board::before,.board::after{content:"";position:absolute;top:-10px;width:14px;height:14px;border-radius:50%;background:var(--wood-deep)}
+.board::before{left:22px}.board::after{right:22px}
+.qmeta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.qno{font-family:var(--f-display);font-size:20px;color:var(--wood-deep);margin-right:4px}
+.badge{border-radius:999px;padding:0 10px;font-size:12px;font-weight:900;color:#fff}
+.badge.soft{background:var(--paper);color:var(--ink-soft);border:1.5px solid var(--card-line)}
+.stem{font-size:16px;font-weight:700;margin:0}
+.judge{background:var(--paper);border-radius:14px;padding:10px 12px;font-size:14px;border-left:5px solid var(--gold)}
+.judge b{display:block;font-size:12px;color:var(--ink-soft)}
+.stmts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.stmts li{display:flex;gap:10px;font-size:14.5px}
+.stmts li .k{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--wood-pale);font-weight:900;font-size:13px}
+.stmts li .k.o{background:var(--ok-pale);color:var(--ok)} .stmts li .k.x{background:var(--ng-pale);color:var(--ng)}
+.choices{display:flex;flex-direction:column;gap:10px}
+.choice{display:flex;gap:12px;align-items:flex-start;text-align:left;background:var(--card);border:2px solid var(--card-line);border-radius:18px;padding:12px 14px;box-shadow:0 4px 0 var(--card-line);font-size:15px;transition:transform .1s,box-shadow .1s,background .2s}
+.choice:not([disabled]):hover{border-color:var(--leaf)}
+.choice:not([disabled]):active{transform:translateY(3px);box-shadow:0 1px 0 var(--card-line)}
+.choice .kana{flex:0 0 32px;height:32px;border-radius:50%;background:var(--leaf-pale);color:var(--leaf-deep);display:grid;place-items:center;font-family:var(--f-display);font-size:16px}
+.choice .t{min-width:0;padding-top:3px}
+.choice.short{align-items:center}.choice.short .t{padding-top:0;font-weight:900;font-size:17px}
+.choice[disabled]{cursor:default}
+.choice.right{background:var(--ok-pale);border-color:var(--ok)} .choice.right .kana{background:var(--ok);color:#fff}
+.choice.wrong{background:var(--ng-pale);border-color:var(--ng)} .choice.wrong .kana{background:var(--ng);color:#fff}
+.choice.dim{opacity:.55}
+
+/* reveal */
+.verdict{display:flex;align-items:center;gap:12px;border-radius:22px;padding:12px 16px;font-family:var(--f-display);font-size:22px;color:var(--on-solid);scroll-margin-top:12px}
+.verdict.ok{background:var(--ok)} .verdict.ng{background:var(--ng)}
+.verdict svg{width:38px;height:38px;flex:0 0 38px}
+.verdict small{display:block;font-family:var(--f-body);font-size:13px;font-weight:700;opacity:.95}
+.pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.fig{background:var(--paper);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.fig h3{margin:0;font-size:14.5px;font-weight:900;display:flex;gap:6px;align-items:center}
+.fig h3::before{content:"";width:18px;height:18px;border-radius:5px;background:var(--leaf);-webkit-mask:var(--pin) center/contain no-repeat;mask:var(--pin) center/contain no-repeat}
+.fig .note{font-size:13px;color:var(--ink-soft);margin:0}
+.scroll{overflow-x:auto;max-width:100%}
+.fig svg.rel{display:block;width:100%;max-width:520px;height:auto;margin:0 auto}
+.n-box{fill:var(--card);stroke:var(--wood);stroke-width:2}
+.n-lab{fill:var(--ink);font-weight:900;font-size:14px;font-family:var(--f-body)}
+.n-sub{fill:var(--ink-soft);font-size:10.5px;font-weight:700;font-family:var(--f-body)}
+.e-go{stroke:var(--ink-soft);stroke-width:2;fill:none}
+.e-win{stroke:var(--leaf);stroke-width:2.5;fill:none;stroke-dasharray:6 4}
+.e-lose{stroke:var(--c-machi);stroke-width:2.5;fill:none;stroke-dasharray:6 4}
+.e-lab{font-size:11px;font-weight:900;font-family:var(--f-body);paint-order:stroke;stroke:var(--paper);stroke-width:5px;stroke-linejoin:round}
+.l-go{fill:var(--ink)} .l-win{fill:var(--leaf-deep)} .l-lose{fill:var(--wood-deep)}
+.m-go{fill:var(--ink-soft)} .m-win{fill:var(--leaf)} .m-lose{fill:var(--c-machi)}
+table.t{border-collapse:separate;border-spacing:0;width:100%;font-size:13.5px;background:var(--card);border-radius:14px;overflow:hidden;border:1.5px solid var(--card-line)}
+table.t th{background:var(--wood);color:#fff8ea;font-weight:900;text-align:left;padding:6px 10px;white-space:nowrap}
+table.t td{padding:7px 10px;border-top:1.5px solid var(--card-line);vertical-align:top}
+table.t td:first-child{font-weight:900}
+.nums{display:flex;flex-direction:column;gap:6px}
+.num{display:grid;grid-template-columns:minmax(0,1.1fr) auto minmax(0,1.3fr);gap:8px;align-items:center;background:var(--card);border-radius:14px;padding:8px 10px;font-size:13.5px}
+.num .lab{font-weight:900}
+.num .trap{color:var(--ng);text-decoration:line-through;text-decoration-thickness:2px;font-weight:700;white-space:nowrap}
+.num .trap.none{text-decoration:none;color:var(--ink-soft)}
+.num .right{color:var(--ok);font-weight:900}
+@media (max-width:460px){.num{grid-template-columns:auto minmax(0,1fr)}.num .lab{grid-column:1/-1}}
+.steps{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.step{background:var(--card);border-radius:14px;padding:6px 12px;border:2px solid var(--card-line);display:flex;flex-direction:column;min-width:0}
+.step b{font-size:12px;color:var(--ink-soft)} .step span{font-weight:900;font-size:14px}
+.arrow{align-self:center;color:var(--wood);font-weight:900}
+.explain{display:flex;flex-direction:column;gap:8px}
+.ex{display:flex;gap:10px;padding:10px 12px;border-radius:16px;background:var(--card);border:2px solid var(--card-line);font-size:14px}
+.ex .mk{flex:0 0 30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#fff;font-family:var(--f-display)}
+.ex.o .mk{background:var(--ok)} .ex.x .mk{background:var(--ng)} .ex .mk{color:var(--on-solid)}
+.ex.o{border-color:var(--ok)}
+.ex .body{min-width:0}
+.ex .body b.kn{font-weight:900;margin-right:6px}
+.ex .you{display:inline-block;font-size:11px;font-weight:900;background:var(--gold);color:#5a3d00;border-radius:999px;padding:0 8px;margin-left:6px;vertical-align:1px}
+.hl{background:linear-gradient(transparent 55%,color-mix(in srgb,var(--gold) 55%,transparent) 55%);font-weight:900}
+.trapbox{background:var(--paper);border:2px dashed var(--gold);border-radius:18px;padding:10px 14px;font-size:14px}
+.trapbox b{display:block;font-size:12.5px;color:var(--wood-deep)}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap}
+.btn{flex:1;min-width:140px;border:none;border-radius:18px;padding:12px 18px;font-weight:900;font-size:16px;background:var(--leaf);color:#fff;box-shadow:0 4px 0 var(--leaf-deep)}
+.btn.sub{background:var(--card);color:var(--ink);border:2px solid var(--card-line);box-shadow:0 4px 0 var(--card-line)}
+.btn:active{transform:translateY(3px);box-shadow:none}
+.prevchip{font-size:12px;font-weight:900;border-radius:999px;padding:0 10px;background:var(--paper);border:1.5px solid var(--card-line)}
+
+/* result */
+.score{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.ring{width:110px;height:110px;flex:0 0 110px}
+.ring text{font-family:var(--f-display);fill:var(--ink)}
+.rlist{display:flex;flex-wrap:wrap;gap:6px}
+.rlist button{border:none;border-radius:12px;padding:4px 10px;font-weight:900;font-size:13px;font-variant-numeric:tabular-nums}
+.rlist .o{background:var(--ok-pale);color:var(--ok)} .rlist .x{background:var(--ng-pale);color:var(--ng)}
+
+/* toast + leaves */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 18px;border-radius:999px;font-weight:900;z-index:50;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center}
+.fx{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+.fx i{position:absolute;top:-30px;width:18px;height:12px;border-radius:0 100% 0 100%;animation:fall 1.6s ease-in forwards}
+@keyframes fall{to{transform:translate(var(--dx),110vh) rotate(540deg);opacity:.2}}
+.kapi .eye-h{display:none}
+.kapi.happy .eye-n{display:none}.kapi.happy .eye-h{display:inline}
+.kapi.sad .sweat{display:inline}.kapi .sweat{display:none}
+.kapi.happy{animation:hop .5s ease 2}
+@keyframes hop{50%{transform:translateY(-8px)}}
+.danger{background:none;border:none;color:var(--ink-soft);font-size:12.5px;text-decoration:underline;padding:0;align-self:flex-start}
+.danger.armed{color:var(--ng);font-weight:900}
+.foot{font-size:12px;color:var(--ink-soft);text-align:center}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="fx" id="fx" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <button class="sign" id="homeBtn" aria-label="ホームへ">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c6 3 10 8 10 14a10 10 0 0 1-20 0C6 11 10 6 16 3z" fill="#7fd36b"/><path d="M16 8v20" stroke="#3f8f3a" stroke-width="2" stroke-linecap="round"/><path d="M16 15l-5-4M16 20l5-4" stroke="#3f8f3a" stroke-width="2" stroke-linecap="round"/></svg>
+      宅建アイランド
+    </button>
+    <div class="toprow">
+      <div class="acorn" title="どんぐり"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14c0 6-3 12-7 12S5 15 5 9z" fill="#c98a4b"/><path d="M4 9c0-3 4-5 8-5s8 2 8 5z" fill="#7a5230"/><path d="M12 4V1.5" stroke="#7a5230" stroke-width="2" stroke-linecap="round"/></svg><span id="acornN">0</span></div>
+      <button class="iconbtn" id="soundBtn" aria-label="効果音"></button>
+    </div>
+  </header>
+  <main id="view" class="wrap" style="padding:0;max-width:none"></main>
+  <p class="foot">宅地建物取引士試験 2026年度予想問題 第2回（全45問）の答案をもとに作成。記録はこの端末とあなたのアカウントに保存されます。</p>
+</div>
+
+<script>
+const CNT = ['一つ','二つ','三つ','四つ'];
+// prev = 答案スキャンでの自分の解答（null は読み取れなかったもの）, okBefore = 前回正解
+const QUESTIONS = [
+{n:1, stem:'次のア～エの記述のうち、民法の規定、判例及び下記判決文によれば、正しいものはどれか。',
+ judge:'所有者甲から乙が不動産を買い受け、その登記が未了の間に、丙が当該不動産を甲から二重に買い受け、更に丙から転得者丁が買い受けて登記を完了した場合に、たとい丙が背信的悪意者に当たるとしても、丁は、乙に対する関係で丁自身が背信的悪意者と評価されるのでない限り、当該不動産の所有権取得をもって乙に対抗することができるものと解するのが相当である。',
+ ch:['丙が背信的悪意者に当たる場合には、丙から当該不動産を買い受けて登記を完了した丁は、丁自身が乙に対する関係で背信的悪意者と評価されるかどうかにかかわらず、当該不動産の所有権取得を乙に対抗することができない。',
+ '丙が、甲乙間の売買の事実を知って当該不動産を甲から買い受けた単なる悪意者にすぎない場合には、乙は、登記を備えていなくても、丙に対して当該不動産の所有権取得を対抗することができる。',
+ '丙が背信的悪意者に当たる場合には、甲丙間の売買契約は公序良俗に反し無効となるから、丙から当該不動産を買い受けた丁は、その所有権を取得することができない。',
+ '丙が背信的悪意者に当たる場合には、乙は、登記を備えていなくても、丙に対して当該不動産の所有権取得を対抗することができる。'],
+ prev:'イ',
+ fig:{type:'rel',title:'二重譲渡と背信的悪意者からの転得者',h:230,nodes:[['k','甲','元の所有者',180,34],['o','乙','第1買主・登記なし',62,130],['h','丙','第2買主・背信的悪意者',298,130],['t','丁','転得者・登記あり',298,206]],
+ edges:[['k','o','① 売買','go'],['k','h','② 二重譲渡','go'],['h','t','③ 転売','go'],['o','h','乙の勝ち（登記不要）','win'],['o','t','丁が背信的悪意者でなければ丁の勝ち','lose',30]]}},
+
+{n:2, stem:'制限行為能力者に関する次の記述のうち、民法の規定によれば、正しいものはどれか。',
+ ch:['未成年者が法定代理人の同意を得ないで締結した売買契約は、法定代理人が取り消すことができるが、未成年者本人は取り消すことができない。',
+ '成年被後見人が成年後見人の同意を得て締結した土地の売買契約は、日用品の購入その他日常生活に関する行為に当たらない場合であっても、取り消すことができない。',
+ '被保佐人が、保佐人の同意を得ないで、その所有する建物について期間を5年とする賃貸借契約を締結した場合、被保佐人は、当該契約を取り消すことができる。',
+ '制限行為能力者が、行為能力者であることを信じさせるため詐術を用いて契約を締結した場合であっても、その制限行為能力者は、当該契約を取り消すことができる。'],
+ prev:'ウ',
+ fig:{type:'tbl',title:'制限行為能力者の取消しルール',head:['だれが','どんなとき','取消し'],rows:[['未成年者','同意なしの契約','本人も法定代理人も取消し可'],['成年被後見人','同意を得ていても','取消し可（日用品の購入等は除く）'],['被保佐人','建物3年・土地5年を超える賃貸を同意なし','取消し可'],['全員共通','詐術で能力者と信じさせた','取消し不可']]}},
+
+{n:3, stem:'時効に関する次の記述のうち、民法の規定によれば、正しいものはどれか。',
+ ch:['裁判上の請求がされた場合において、確定判決等によって権利が確定することなくその事由が終了したときは、その終了の時から3か月を経過するまでの間は、時効は完成しない。',
+ '催告があったときは、その時から6か月を経過するまでの間は時効は完成しないが、催告によって時効の完成が猶予されている間にされた再度の催告は、時効の完成猶予の効力を有しない。',
+ '時効の期間の満了の時に当たり、天災その他避けることのできない事変のため裁判上の請求等の手続を行うことができないときは、その障害が消滅した時から1か月を経過するまでの間は、時効は完成しない。',
+ '時効の利益は、あらかじめ放棄することができる。'],
+ prev:'イ',
+ fig:{type:'nums',title:'完成猶予の期間（ひっかけ数字）',items:[['裁判上の請求が途中で終了','3か月','6か月'],['催告','—','6か月（再度の催告は効果なし）'],['天災等で手続できない','1か月','3か月'],['時効利益の放棄','あらかじめOK','完成後のみOK']]}},
+
+{n:4, stem:'代理に関する次の記述のうち、民法の規定によれば、正しいものはどれか。',
+ ch:['委任による代理人は、本人の許諾を得たとき又はやむを得ない事由があるときに復代理人を選任することができ、復代理人を選任したときは、本人に対してその選任及び監督についての責任のみを負う。',
+ '法定代理人は、やむを得ない事由があるときに限り、復代理人を選任することができる。',
+ '代理人が自己又は第三者の利益を図る目的で代理権の範囲内の行為をした場合において、相手方がその目的を知っていたときであっても、その行為は有効な代理行為として本人に効果が帰属する。',
+ '同一の法律行為について、当事者双方の代理人としてした行為は、債務の履行及び本人があらかじめ許諾した行為を除き、代理権を有しない者がした行為とみなされる。'],
+ prev:null,
+ fig:{type:'tbl',title:'任意代理と法定代理の復代理',head:['','任意代理人','法定代理人'],rows:[['復代理人の選任','本人の許諾 or やむを得ない事由','いつでも自由に'],['責任','委任契約の債務不履行の一般原則','全責任（やむを得ないときは選任・監督のみ）']],note:'代理権の濫用（相手方が悪意・有過失）と双方代理は「無権代理とみなす」。'}},
+
+{n:5, stem:'根抵当権に関する次のa～dの記述のうち、民法の規定によれば、正しいものはいくつあるか。',
+ st:['元本の確定前においては、担保すべき元本の確定すべき期日を定め又は変更することができ、その変更をするには、後順位の抵当権者その他の第三者の承諾を得ることを要しない。',
+ '元本の確定前においては、根抵当権の担保すべき債権の範囲の変更をするには、後順位の抵当権者その他の第三者の承諾を得ることを要しない。',
+ '元本の確定前においては、根抵当権者は、根抵当権設定者の承諾を得て、その根抵当権を譲り渡すことができる。',
+ '根抵当権の極度額の変更は、後順位の抵当権者など利害関係を有する者の承諾を得なくても、することができる。'],
+ ch:CNT, prev:'イ',
+ fig:{type:'tbl',title:'元本確定前の変更・譲渡に必要な承諾',head:['すること','だれの承諾？'],rows:[['確定期日の変更','不要'],['被担保債権の範囲の変更','不要'],['債務者の変更','不要'],['極度額の変更','利害関係人の承諾が必要'],['根抵当権の全部譲渡','設定者の承諾が必要']]}},
+
+{n:6, stem:'保証及び連帯債務に関する次の記述のうち、民法の規定によれば、正しいものはどれか。',
+ ch:['保証人が主たる債務者の委託を受けて保証をした場合において、保証人の請求があったときは、債権者は、保証人に対し、遅滞なく、主たる債務の元本及び利息等についての不履行の有無並びにこれらの残額等に関する情報を提供しなければならない。',
+ '債権者が連帯債務者の一人に対して履行の請求をした場合、債権者及び他の連帯債務者の一人が別段の意思を表示していなくても、他の連帯債務者に対してもその効力が生ずる。',
+ '主たる債務者が債権者に対して相殺権を有する場合であっても、保証人は、債権者に対して債務の履行を拒むことはできない。',
+ '事業のために負担した貸金等債務を主たる債務とする保証契約は、保証人が法人であるときであっても、その契約の締結に先立ち、その締結の日前1か月以内に作成された公正証書で保証債務を履行する意思を表示していなければ、その効力を生じない。'],
+ prev:'エ',
+ fig:{type:'rel',title:'保証の三者関係',h:200,nodes:[['c','債権者','',180,36],['m','主たる債務者','相殺権あり',70,160],['g','保証人','委託を受けた',290,160]],
+ edges:[['m','g','保証の委託','go'],['g','c','請求 → 履行状況の情報提供','go',-34],['m','c','相殺権','go'],['g','c','相殺の限度で履行拒絶OK','win',34]]}},
+
+{n:7, stem:'債権譲渡及び相殺に関する次のa～dの記述のうち、民法の規定によれば、正しいものの組合せはどれか。',
+ st:['譲渡制限の意思表示がされた金銭の給付を目的とする債権が譲渡されたときは、債務者は、その債権の全額に相当する金銭を債務の履行地の供託所に供託することができる。',
+ '譲渡制限の意思表示がされた金銭債権が譲渡された場合、債務者は、譲受人がその意思表示を知っていたときであっても、譲受人からの履行の請求を拒むことはできない。',
+ '債権の譲渡は、譲渡人が債務者に通知をし、又は債務者が承諾をしなければ、債務者その他の第三者に対抗することができず、債務者以外の第三者に対抗するには、その通知又は承諾が確定日付のある証書によってされることを要する。',
+ '悪意による不法行為に基づく損害賠償の債務の債務者は、その債務を受働債権として、自己の有する債権との相殺をもって債権者に対抗することができる。'],
+ ch:['a、b','a、c','b、d','c、d'], prev:'ウ',
+ fig:{type:'rel',title:'譲渡制限特約つき債権の譲渡',h:210,nodes:[['a','譲渡人','元の債権者',70,40],['b','譲受人','悪意・重過失？',290,40],['d','債務者','',180,170],['k','供託所','',330,170]],
+ edges:[['a','b','債権譲渡（有効）','go'],['a','d','通知（第三者には確定日付）','go'],['d','b','悪意・重過失なら履行拒絶OK','win'],['d','k','全額供託OK','go']]}},
+
+{n:8, stem:'請負及び委任に関する次の記述のうち、民法の規定によれば、正しいものはどれか。',
+ ch:['請負人が種類又は品質に関して契約の内容に適合しない仕事の目的物を注文者に引き渡した場合、その不適合が注文者の供した材料の性質によって生じたものであっても、注文者は、請負人に対して履行の追完を請求することができる。',
+ '委任は、各当事者がいつでもその解除をすることができる。',
+ '受任者は、委任事務を処理するについて費用を要するときであっても、委任者に対してその費用の前払を請求することはできない。',
+ '注文者が破産手続開始の決定を受けたときは、請負人は、仕事を完成した後であっても、契約の解除をすることができる。'],
+ prev:'ウ',
+ fig:{type:'tbl',title:'請負と委任のちがい',head:['論点','請負','委任'],rows:[['解除','注文者は完成前ならいつでも（損害賠償）','各当事者がいつでも'],['費用','—','受任者は前払請求できる'],['相手方の破産','注文者破産→請負人は「完成前」だけ解除可','委任は終了'],['不適合','注文者の材料・指図が原因なら追完請求不可','—']]}},
+
+{n:9, stem:'賃貸借に関する次の記述のうち、民法の規定によれば、正しいものはどれか。',
+ ch:['対抗要件を備えた賃貸借の目的である不動産が譲渡され、賃貸人たる地位が譲受人に移転した場合、譲受人は、当該不動産について所有権の移転の登記をしなくても、賃借人に対して賃料を請求することができる。',
+ '不動産の賃借人は、賃貸借の対抗要件を備えた場合であっても、その不動産を第三者が占有しているときは、その第三者に対して返還の請求をすることはできない。',
+ '対抗要件を備えた賃貸借の目的である不動産が譲渡され、賃貸人たる地位が譲受人に移転した場合、敷金の返還に係る債務は、譲受人に承継されない。',
+ '賃借物の全部が滅失その他の事由により使用及び収益をすることができなくなった場合には、賃貸借は、これによって終了する。'],
+ prev:'イ',
+ fig:{type:'rel',title:'オーナーチェンジ',h:200,nodes:[['a','旧賃貸人','元オーナー',70,40],['c','新オーナー','譲受人',290,40],['b','賃借人','対抗要件あり',180,170]],
+ edges:[['a','c','売却 → 賃貸人の地位も移転','go'],['a','b','賃貸借','go'],['c','b','賃料請求には所有権移転登記が必要','win']],note:'敷金返還債務も新オーナーに引き継がれる。'}},
+
+{n:10, stem:'遺言及び遺留分に関する次の記述のうち、民法の規定並びに法務局における遺言書の保管等に関する法律の規定によれば、正しいものはどれか。',
+ ch:['自筆証書にこれと一体のものとして相続財産の目録を添付する場合には、その目録についても、遺言者がその全文を自書しなければならない。',
+ '法務局（遺言書保管所）に保管されている自筆証書遺言についても、相続の開始後、遺言書の保管者は、家庭裁判所の検認を請求しなければならない。',
+ '遺言者は、いつでも、遺言の方式に従って、その遺言の全部又は一部を撤回することができる。',
+ '被相続人の兄弟姉妹は、遺留分として、遺留分を算定するための財産の価額の4分の1を受ける。'],
+ prev:'エ',
+ fig:{type:'tbl',title:'自筆証書遺言と遺留分のポイント',head:['論点','ルール'],rows:[['財産目録','自書不要（毎葉に署名・押印は必要）'],['法務局で保管','家庭裁判所の検認は不要'],['撤回','いつでも、遺言の方式で'],['兄弟姉妹','遺留分なし']]}},
+
+{n:11, stem:'借地借家法に規定する借地権（一時使用目的のものを除く。）に関する次の記述のうち、借地借家法の規定によれば、正しいものはどれか。',
+ ch:['借地権の存続期間が満了した後、借地権者が土地の使用を継続するときは、借地上に建物がない場合であっても、借地権設定者が遅滞なく異議を述べなければ、契約を更新したものとみなされる。',
+ '借地権設定者と借地権者が借地契約を更新する場合において、その期間は、最初の更新であっても、当事者がこれより長い期間を定めない限り、更新の日から10年となる。',
+ '借地上の建物を取得した第三者が、借地権設定者に賃借権の譲渡を承諾してもらえない場合であっても、その第三者は、借地権設定者に対し、建物を時価で買い取るべきことを請求することはできない。',
+ '借地権の存続期間が満了した場合において、契約の更新がないときは、借地権者は、借地権設定者に対し、建物その他借地権者が権原により土地に附属させた物を時価で買い取るべきことを請求することができる。'],
+ prev:'ウ',
+ fig:{type:'line',title:'借地権の存続期間',steps:[['当初','30年以上'],['1回目の更新','20年以上'],['2回目以降','10年以上']],note:'使用継続による法定更新は「建物があるとき」だけ。建物買取請求は借地権者（13条）にも建物取得者（14条）にもある。'}},
+
+{n:12, stem:'借地借家法に規定する建物の賃貸借（定期建物賃貸借及び一時使用目的のものを除く。）に関する次のa～dの記述のうち、借地借家法の規定によれば、正しいものはいくつあるか。',
+ st:['建物の転貸借がされている場合において、建物の賃貸借が期間の満了によって終了するときは、建物の賃貸人は、建物の転借人にその旨の通知をしなければ、その終了を建物の転借人に対抗することができない。',
+ '期間の定めがない建物の賃貸借において、建物の賃貸人が正当の事由をもって解約の申入れをした場合、建物の賃貸借は、解約の申入れの日から6か月を経過することによって終了する。',
+ '建物の賃借人が建物の賃貸人の同意を得て建物に付加した造作について、賃貸借の終了時に建物の賃貸人に対して時価で買い取るべきことを請求することができない旨の特約は、有効である。',
+ '期間の定めがある建物の賃貸借において、当事者が期間の満了の1年前から6か月前までの間に相手方に対して更新をしない旨の通知等をしなかったときは、従前の契約と同一の条件で契約を更新したものとみなされ、その期間も従前の契約と同一となる。'],
+ ch:CNT, prev:'イ',
+ fig:{type:'line',title:'借家の更新と終了',steps:[['満了1年前〜6か月前','更新拒絶の通知'],['通知なし','法定更新'],['更新後','期間の定めなし']],note:'賃貸人からの解約申入れ＝正当事由＋6か月。造作買取請求権は特約で排除OK（任意規定）。'}},
+
+{n:13, stem:'建物の区分所有等に関する法律（以下この問において「法」という。）に規定する区分所有建物の管理に関する制度に関する次の記述のうち、法の規定によれば、正しいものはどれか。',
+ ch:['裁判所が管理不全専有部分管理命令をした場合、管理不全専有部分管理人は、裁判所の許可を得れば、その区分所有者の同意を得ることなく、管理不全専有部分を売却することができる。',
+ '裁判所が所有者不明専有部分管理命令をした場合、所有者不明専有部分管理人は、裁判所の許可を得て、所有者不明専有部分を売却することができる。',
+ '管理不全共用部分管理命令は、区分所有者による共用部分の管理が不適当であることによって他人の権利又は法律上保護される利益が侵害され、又は侵害されるおそれがある場合において、裁判所が職権で発するものであり、利害関係人の請求を要しない。',
+ '国内に住所又は居所を有せず、又は有しないこととなる区分所有者は、規約に定めがあるかどうかにかかわらず、その専有部分及び共用部分の管理に関する事務を行わせるため、国内管理人を選任しなければならない。'],
+ prev:'エ',
+ fig:{type:'tbl',title:'【改正】専有部分の管理人が売却するには',head:['管理人','売却に必要なもの'],rows:[['所有者不明専有部分管理人','裁判所の許可'],['管理不全専有部分管理人','裁判所の許可 ＋ 区分所有者の同意'],['管理不全共用部分管理命令','利害関係人の請求で発令'],['国内管理人','選任は任意（規約で義務化は可）']]}},
+
+{n:14, stem:'不動産の登記に関する次の記述のうち、不動産登記法の規定によれば、正しいものはどれか。',
+ ch:['令和8年4月1日より前に所有権の登記名義人の住所に変更があった場合には、当該登記名義人に住所についての変更の登記の申請義務が課されることはない。',
+ '遺贈による所有権の移転の登記は、受遺者が相続人である場合であっても、登記権利者と登記義務者が共同して申請しなければならない。',
+ '相続により所有権を取得した者が、自己のために相続の開始があったことを知り、かつ、当該所有権を取得したことを知った日から3年以内に、登記官に対し、所有権の登記名義人について相続が開始した旨及び自らがその相続人である旨を申し出たときは、相続登記の申請義務を履行したものとみなされる。',
+ '新築した建物の所有権を取得した者は、その所有権の取得の日から3か月以内に、表題登記を申請しなければならない。'],
+ prev:'ウ',
+ fig:{type:'nums',title:'登記の申請期限',items:[['相続登記（相続人申告登記でもOK）','—','知った日から3年以内'],['住所等の変更登記','—','2年以内（施行前の変更はR10.3.31まで）'],['建物の表題登記','3か月','1か月以内'],['相続人への遺贈','共同申請','受遺者が単独申請OK']]}},
+
+{n:15, stem:'都市計画法に関する次の記述のうち、正しいものはどれか。なお、この問において「都道府県知事等」とは、都道府県知事（市の区域内にあっては、当該市の長）をいうものとする。',
+ ch:['準都市計画区域については、都市計画に、区域区分を定めることができる。',
+ '地区計画は、用途地域が定められている土地の区域においてのみ定めることができる。',
+ '都市計画施設の区域内において建築物の建築をしようとする者は、それが非常災害のため必要な応急措置として行う行為であっても、都道府県知事等の許可を受けなければならない。',
+ '都市計画事業の認可の告示後に施行者が行う事業の概要等の公告の日の翌日から起算して10日を経過した後に、事業地内の土地建物等を有償で譲り渡そうとする者は、原則として、当該土地建物等、その予定対価の額及び譲り渡そうとする相手方等を書面で施行者に届け出なければならない。'],
+ prev:'イ',
+ fig:{type:'tbl',title:'53条と65条のちがい',head:['','施設区域内（53条）','事業地内（65条）'],rows:[['許可権者','知事等','知事等'],['非常災害の応急措置','許可不要','例外なし（許可必要）'],['有償譲渡','—','公告の翌日から10日経過後は施行者へ届出']],note:'区域区分は都市計画区域だけ。準都市計画区域には定められない。'}},
+
+{n:16, stem:'都市計画法に規定する開発許可に関する次のa～dの記述のうち、同法の規定によれば、正しいものはいくつあるか。なお、この問において「都道府県知事」とは、地方自治法に基づく指定都市、中核市及び施行時特例市にあってはその長をいうものとする。',
+ st:['開発許可を申請しようとする者は、あらかじめ、開発行為又は開発行為に関する工事により設置される公共施設を管理することとなる者等と協議しなければならないが、その者の同意を得ることまでは要しない。',
+ '開発許可を受けた開発区域内の土地においては、工事完了の公告があるまでの間は、原則として建築物を建築してはならないが、開発行為に同意をしていない土地の所有者が、その権利の行使として建築物を建築する場合は、この限りでない。',
+ '開発許可を受けた者は、開発行為に関する工事を廃止したときは、遅滞なく、その旨を都道府県知事に届け出なければならない。',
+ '開発許可を受けた者から当該開発区域内の土地の所有権を取得した者は、都道府県知事の承認を受けることなく、当然に当該開発許可に基づく地位を承継する。'],
+ ch:CNT, prev:'イ',
+ fig:{type:'tbl',title:'開発許可：協議・同意と地位の承継',head:['論点','ルール'],rows:[['既存の公共施設の管理者','協議 ＋ 同意'],['新設される公共施設の管理者','協議だけ'],['工事の廃止','届出（許可ではない）'],['一般承継（相続など）','当然に承継'],['特定承継（土地を買った人）','知事の承認が必要']]}},
+
+{n:17, stem:'建築基準法に関する次の記述のうち、正しいものはどれか。',
+ ch:['防火地域内においては、階数が3以上であり、又は延べ面積が100㎡を超える建築物は、原則として、耐火建築物又はこれと同等以上の延焼防止性能を有する建築物としなければならない。',
+ '住宅の居室には、原則として、採光のための窓その他の開口部を設け、その採光に有効な部分の面積は、その居室の床面積に対して5分の1以上としなければならない。',
+ '高さ15mを超える建築物には、周囲の状況によって安全上支障がない場合を除き、有効に避雷設備を設けなければならない。',
+ '建築物の敷地は、これに接する道の境より低くしなければならず、建築物の地盤面は、これに接する周囲の土地より低くしなければならない。'],
+ prev:'ウ',
+ fig:{type:'nums',title:'建築基準法のひっかけ数字',items:[['住宅の居室の採光','1/5','1/7（照明設置で1/10まで緩和）'],['避雷設備','15m超','20m超'],['非常用昇降機','—','31m超'],['敷地・地盤面','低く','高く']]}},
+
+{n:18, stem:'建築基準法に関する次のa～dの記述のうち、正しいものの組合せはどれか。',
+ st:['第一種低層住居専用地域内においては、小学校を建築することができる。',
+ '第一種住居地域内においては、床面積の合計が3,000㎡以下のホテルを建築することができる。',
+ '第二種中高層住居専用地域内においては、ホテル又は旅館を建築することができる。',
+ '都市計画区域の指定の際現に建築物が立ち並んでいる幅員4m未満の道で、特定行政庁の指定したものは、道路とみなされ、原則として、その中心線からの水平距離3mの線がその道路の境界線とみなされる。'],
+ ch:['a、c','a、b','b、d','c、d'], prev:'ウ',
+ fig:{type:'tbl',title:'用途地域ごとの建築の可否',head:['用途地域','小学校','ホテル・旅館'],rows:[['第一種低層住居専用','○','×'],['第二種中高層住居専用','○','×'],['第一種住居','○','○（3,000㎡以下）'],['工業・工業専用','×','×']],note:'2項道路は中心線から2mの線が道路境界線。'}},
+
+{n:19, stem:'宅地造成及び特定盛土等規制法に関する次の記述のうち、同法の規定によれば、正しいものはどれか。なお、この問において「都道府県知事」とは、地方自治法に基づく指定都市及び中核市にあってはその長をいうものとする。',
+ ch:['特定盛土等規制区域内において行われる特定盛土等又は土石の堆積に関する工事（都道府県知事の許可を要するものを除く。）については、工事主は、当該工事に着手する日の30日前までに、当該工事の計画を都道府県知事に届け出なければならない。',
+ '宅地造成等工事規制区域内において宅地造成等に関する工事の許可を受けた工事主は、当該許可に係る工事の計画の軽微な変更をしようとするときであっても、都道府県知事の許可を受けなければならない。',
+ '宅地造成等工事規制区域内の土地（宅地造成等に関する工事の許可を要するものを除く。）において、高さが2mを超える擁壁の全部又は一部の除却の工事を行おうとする者は、その工事に着手する日の21日前までに、その旨を都道府県知事に届け出なければならない。',
+ '宅地造成等工事規制区域内において、公共施設用地を宅地又は農地等に転用した者（宅地造成等に関する工事の許可を受けた者等を除く。）は、その転用した日から21日以内に、その旨を都道府県知事に届け出なければならない。'],
+ prev:'ア',
+ fig:{type:'nums',title:'盛土規制法の届出期限',items:[['特定盛土等規制区域の工事','—','着手の30日前まで'],['擁壁等の除却工事','21日前','着手の14日前まで'],['公共施設用地の転用','21日以内','転用から14日以内'],['区域指定時に工事中','—','指定から21日以内'],['軽微な変更','許可','遅滞なく届出']]}},
+
+{n:20, stem:'土地区画整理法に関する次の記述のうち、正しいものはどれか。',
+ ch:['土地区画整理事業の施行地区内において、事業の施行の障害となるおそれがある建築物の新築を行おうとする者は、市町村長の許可を受けなければならない。',
+ '換地処分は、換地計画に係る区域の全部について土地区画整理事業の工事が完了した後でなければ、規準、規約、定款又は施行規程に別段の定めがある場合であっても、することができない。',
+ '換地処分は、関係権利者に換地計画において定められた関係事項を通知してするものとする。',
+ '土地区画整理組合が総会の議決により解散しようとする場合には、その解散について市町村長の認可を受けなければならない。'],
+ prev:'ウ',
+ fig:{type:'line',title:'換地処分までの流れ',steps:[['工事','原則は全部完了後'],['換地処分','関係権利者へ通知'],['公告','知事が公告'],['効果','公告の翌日']],note:'建築等の許可・組合の解散認可はどちらも「知事」系。市町村長ではない。'}},
+
+{n:21, stem:'農地法（以下この問において「法」という。）に関する次のa～dの記述のうち、法の規定によれば、正しいものはいくつあるか。',
+ st:['耕作の事業を行う者が、その所有する農地（1.5a）を、その者の農作物の育成又は養畜の事業のための農業用施設の用に供するため転用する場合には、法第4条第1項の許可を受ける必要はない。',
+ '農地の賃貸借は、その登記がなければ、農地の引渡しを受けていても、その後その農地について所有権を取得した第三者に対抗することができない。',
+ '市街化区域内にある農地を耕作の目的で取得する場合には、あらかじめ農業委員会に届け出れば、法第3条第1項の許可を受ける必要はない。',
+ '農地の賃貸借の当事者は、合意により賃貸借を解約する場合であっても、例外なく、都道府県知事の許可を受けなければならない。'],
+ ch:CNT, prev:'ウ',
+ fig:{type:'tbl',title:'農地法 3条・4条・5条',head:['','3条','4条','5条'],rows:[['内容','権利移動','転用','転用目的の権利移動'],['市街化区域の特例（届出）','なし','あり','あり'],['2a未満の農業用施設','—','許可不要','—']],note:'農地の賃貸借は「引渡し」で対抗できる。'}},
+
+{n:22, stem:'国土利用計画法第23条の届出（以下この問において「事後届出」という。）に関する次の記述のうち、同法の規定によれば、正しいものはどれか。',
+ ch:['事後届出が必要な土地売買等の契約を締結した場合、権利取得者は、その契約を締結した日の翌日から起算して3週間以内に、事後届出をしなければならない。',
+ '事後届出においては、土地の利用目的のほか対価の額も届け出なければならず、都道府県知事は、対価の額が土地の価格に照らし著しく適正を欠くときは、対価の額について勧告することができる。',
+ '市街化調整区域内に所在する4,000㎡の土地を売買により取得した者は、事後届出をしなければならない。',
+ 'Aが所有する都市計画区域外の12,000㎡の土地について、Bが、Aとの間で、対価を支払って地上権の設定を受ける契約を締結した場合、Bは、事後届出をしなければならない。'],
+ prev:'ウ',
+ fig:{type:'nums',title:'事後届出の対象面積と期限',items:[['市街化区域','—','2,000㎡以上'],['市街化調整区域・非線引き','4,000㎡','5,000㎡以上'],['都市計画区域外','—','10,000㎡以上'],['届出期限','3週間','契約から2週間以内'],['勧告の対象','対価の額','利用目的だけ']]}},
+
+{n:23, stem:'租税特別措置法に規定する居住用財産の譲渡所得の特例に関する次の記述のうち、正しいものはどれか。',
+ ch:['居住用財産を譲渡した場合の3,000万円特別控除は、その譲渡の相手方が譲渡者の配偶者や直系血族など一定の特別の関係がある者である場合には、適用を受けることができない。',
+ '居住用財産を譲渡した場合の長期譲渡所得の課税の特例（軽減税率の特例）は、譲渡した年の1月1日において所有期間が5年を超える居住用財産を譲渡した場合に適用される。',
+ '居住用財産を譲渡した場合の3,000万円特別控除は、その者が居住の用に供さなくなった家屋を、居住の用に供さなくなった日から5年を経過する日の属する年の12月31日までに譲渡した場合に限り、適用を受けることができる。',
+ '譲渡所得が長期譲渡所得に当たるかどうかは、譲渡した日において、その資産の所有期間が5年を超えるかどうかによって判定する。'],
+ prev:'ア',
+ fig:{type:'nums',title:'居住用財産の特例',items:[['軽減税率の所有期間','5年超','10年超'],['住まなくなってから','5年','3年目の年末まで'],['長期・短期の判定日','譲渡した日','譲渡した年の1月1日'],['親族への譲渡','—','3,000万円控除は使えない']]}},
+
+{n:24, stem:'固定資産税に関する次の記述のうち、地方税法の規定によれば、正しいものはどれか。',
+ ch:['固定資産税は、賦課期日である1月1日現在において固定資産課税台帳に所有者として登録されている者に課されるため、年の途中で土地を売却した者であっても、その年度分の固定資産税の全額について納税義務を負う。',
+ '住宅用地のうち、住宅1戸当たり200㎡以下の部分（小規模住宅用地）に係る固定資産税の課税標準は、当該住宅用地の価格の3分の1の額とされる。',
+ '令和8年度分の固定資産税において、同一の者が同一の市町村の区域内に所有する家屋に係る課税標準となるべき額が25万円である場合には、固定資産税は課されない。',
+ '固定資産税の標準税率は100分の1.7であり、市町村は、条例によってこれを超える税率を定めることはできない。'],
+ prev:'イ',
+ fig:{type:'nums',title:'固定資産税の数字',items:[['小規模住宅用地（200㎡以下）','1/3','1/6'],['一般住宅用地（200㎡超）','—','1/3'],['家屋の免税点（令和8年度）','25万円','20万円'],['標準税率','1.7%','1.4%（超える税率もOK）']]}},
+
+{n:25, stem:'不動産の鑑定評価に関する次の記述のうち、不動産鑑定評価基準によれば、正しいものはどれか。',
+ ch:['不動産の価格を求める鑑定評価の手法は、原価法、取引事例比較法及び収益還元法に大別されるが、鑑定評価に当たっては、原則として、これらのうち最も適切な一つの手法を選択して適用すべきである。',
+ '取引事例比較法における取引事例は、取引事情が正常なものと認められるものであることが必要であるが、特殊な事情を含む取引事例であっても、正常なものに補正することができるものであれば、採用することができる。',
+ '原価法は、対象不動産が建物又は建物及びその敷地である場合に適用することができ、対象不動産が土地のみである場合には、再調達原価を適切に求めることができるときであっても、適用することはできない。',
+ '収益価格を求める方法には直接還元法とDCF法とがあるが、証券化対象不動産の鑑定評価においては、DCF法を適用することはできず、直接還元法によらなければならない。'],
+ prev:'エ',
+ fig:{type:'tbl',title:'鑑定評価の3手法',head:['手法','ポイント'],rows:[['原価法','土地のみでも造成地・埋立地なら使える'],['取引事例比較法','特殊事情は補正できればOK'],['収益還元法','証券化対象不動産はDCF法が必須'],['手法の選び方','複数の手法を併用するのが原則']]}},
+
+{n:26, stem:'宅地建物取引業法（以下この問において「法」という。）に規定する宅地及び建物に関する次の記述のうち、正しいものはどれか。',
+ ch:['都市計画法に規定する用途地域外の土地であって、現に建物の敷地に供されていないものは、建物の敷地に供する目的で取引される場合であっても、法に規定する宅地に当たらない。',
+ '建物の敷地に供する目的で取引される土地であっても、その土地が市街化調整区域内にある場合には、法に規定する宅地に当たらない。',
+ '都市計画法に規定する用途地域内の土地で、現に駐車場として利用されているものは、法に規定する宅地に当たる。',
+ 'マンションの一室（専有部分）は、建物の一部にすぎないから、法に規定する建物に当たらない。'],
+ prev:'ウ',
+ fig:{type:'tbl',title:'宅建業法の「宅地」',head:['土地','宅地？'],rows:[['建物を建てる目的で取引（場所は問わない）','○'],['用途地域内の土地（駐車場・資材置場など）','○'],['用途地域内の道路・公園・河川・広場・水路','×'],['マンションの一室','建物に当たる']]}},
+
+{n:27, stem:'宅地建物取引業の免許（以下この問において「免許」という。）の基準に関する次のa～dの記述のうち、宅地建物取引業法（以下この問において「法」という。）の規定によれば、正しいものはいくつあるか。',
+ st:['A社の取締役Bが、刑法第246条（詐欺）の罪により拘禁刑に処せられ、その刑の全部の執行猶予の言渡しを受けている場合、A社は、その猶予期間中は、免許を受けることができない。',
+ 'C社が不正の手段により免許を受けたとして免許を取り消された場合において、当該取消しに係る聴聞の期日及び場所の公示の日前60日以内にC社の役員であった者は、その取消しの日から3年を経過すれば、免許を受けることができる。',
+ 'D社の役員であったEが、暴力団員による不当な行為の防止等に関する法律の規定に違反したことにより罰金の刑に処せられた場合、Eが既にD社の役員を退任しているときであっても、D社は、その刑の執行を終わった日から5年を経過するまでは、免許を受けることができない。',
+ '宅地建物取引業に係る営業に関し成年者と同一の行為能力を有しない未成年者Fは、その法定代理人が免許の欠格事由に該当しない場合であっても、免許を受けることができない。'],
+ ch:CNT, prev:'ア',
+ fig:{type:'tbl',title:'免許の欠格事由',head:['ケース','結論'],rows:[['役員が拘禁刑・執行猶予中（罪名不問）','法人も免許不可'],['不正手段で取消し→聴聞公示前60日以内の役員','取消しから5年は不可'],['欠格者がすでに役員を退任','法人は免許OK（現在の役員で判断）'],['営業許可のない未成年者','法定代理人がシロなら免許OK']]}},
+
+{n:28, stem:'宅地建物取引業の免許（以下この問において「免許」という。）の効力に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['宅地建物取引業者が免許の有効期間の満了の日までに免許の更新の申請をした場合において、その申請について処分がなされないまま有効期間が満了したときは、従前の免許は効力を失い、処分がなされるまで業務を行うことはできない。',
+ '宅地建物取引業者が免許の更新を受けた場合、その免許の有効期間は、従前の免許の有効期間の満了の日の翌日から起算する。',
+ '宅地建物取引業者が免許換えにより新たな免許を受けた場合、その免許の有効期間は、従前の免許の有効期間の残存期間となる。',
+ '宅地建物取引業者が事務所を移転したことにより免許換えが必要となったにもかかわらず、免許換えの申請を怠っていた場合であっても、そのことを理由に免許を取り消されることはない。'],
+ prev:'エ',
+ fig:{type:'line',title:'免許の更新',steps:[['更新申請','満了の90日前〜30日前'],['満了日','処分がまだでも'],['処分まで','従前の免許が有効'],['新しい免許','満了日の翌日から5年']],note:'免許換えは新しい免許なので新たに5年。免許換えを怠ると必要的取消し。'}},
+
+{n:29, stem:'宅地建物取引士（以下この問において「宅建士」という。）に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['宅建士は、宅地建物取引士証が効力を失ったときは、速やかに、宅地建物取引士証をその交付を受けた都道府県知事に返納しなければならない。',
+ '宅建士が、他人に自己の名義の使用を許し、当該他人がその名義を使用して宅建士である旨の表示をしたときは、登録を消除されることはあるが、事務の禁止の処分を受けることはない。',
+ '宅地建物取引士資格試験に合格した者が、合格した日から1年以内に登録を受けなかった場合、その合格は効力を失う。',
+ '宅建士は、その勤務する宅地建物取引業者の商号に変更があった場合であっても、変更の登録を申請する必要はない。'],
+ prev:'ア',
+ fig:{type:'tbl',title:'宅建士の手続き',head:['できごと','すること'],rows:[['宅建士証が失効','速やかに交付した知事へ返納'],['名義貸し','指示・事務禁止、重いと登録消除'],['試験の合格','一生有効'],['勤務先の商号・免許証番号の変更','遅滞なく変更の登録']]}},
+
+{n:30, stem:'宅地建物取引業者が事務所等に置く成年者である専任の宅地建物取引士（以下この問において「専任の宅建士」という。）に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['宅地建物取引業者は、その事務所ごとに、その業務に従事する者10人に1人以上の割合で専任の宅建士を置かなければならない。',
+ '宅地建物取引業者は、既存の事務所において専任の宅建士の数が法定の数を下回ることとなった場合には、30日以内に、必要な措置を執らなければならない。',
+ '宅地建物取引士である未成年者は、宅地建物取引業者の役員であっても、その主として業務に従事する事務所の専任の宅建士とみなされることはない。',
+ '宅地建物取引業者が、他の宅地建物取引業者が行う一団の建物の分譲の代理又は媒介を案内所を設置して行う場合において、その案内所で売買契約の申込みを受けるときは、当該案内所に専任の宅建士を1人以上置かなければならない。'],
+ prev:'ウ',
+ fig:{type:'nums',title:'専任の宅建士',items:[['事務所の設置割合','10人に1人','5人に1人以上'],['欠けたときの補充','30日以内','2週間以内'],['未成年の宅建士','みなされない','役員なら専任とみなされる'],['申込みを受ける案内所','—','1人以上']]}},
+
+{n:31, stem:'宅地建物取引業者A（甲県知事免許）の営業保証金に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['Aと宅地建物取引業に関し取引をした者（宅地建物取引業者に該当する者を除く。）は、その取引により生じた債権に関し、Aが供託した営業保証金について弁済を受ける権利を有するが、その額は、Aが供託している営業保証金の額にかかわらず、1,000万円が限度となる。',
+ 'Aが有価証券のみで営業保証金を供託している場合において、主たる事務所を移転したためその最寄りの供託所が変更したときは、Aは、従前の供託所に対し、営業保証金の保管替えを請求することができる。',
+ 'Aは、営業保証金の還付があったため不足額を供託したときは、その供託をした日から2週間以内に、その旨を供託所に届け出なければならない。',
+ 'Aは、事業の開始後新たに従たる事務所を設置したときは、その事務所につき500万円の営業保証金を主たる事務所の最寄りの供託所に供託し、その旨を甲県知事に届け出た後でなければ、当該事務所で事業を開始してはならない。'],
+ prev:'イ',
+ fig:{type:'rel',title:'営業保証金の流れ',h:210,nodes:[['a','業者A','甲県知事免許',70,40],['k','供託所','主たる事務所の最寄り',290,40],['g','甲県知事','免許権者',70,170],['c','取引の相手','業者以外',290,170]],
+ edges:[['a','k','本店1,000万＋支店500万ずつ','go'],['c','k','還付（供託額まで）','go'],['a','g','供託した旨を届出（不足額は2週間以内）','go']],note:'保管替えの請求は「金銭のみ」で供託しているときだけ。'}},
+
+{n:32, stem:'宅地建物取引業保証協会（以下この問において「保証協会」という。）に関する次のa～dの記述のうち、宅地建物取引業法の規定によれば、正しいものはいくつあるか。',
+ st:['保証協会は、社員の取り扱った宅地建物取引業に係る取引に関する苦情について解決の申出があったときは、その申出及びその解決の結果について社員に周知させなければならない。',
+ '保証協会の社員と宅地建物取引業に関し取引をした者が弁済業務保証金について弁済を受ける権利を実行しようとするときは、弁済を受けることができる額について、当該社員の免許権者の認証を受けなければならない。',
+ '宅地建物取引業者は、同時に二以上の保証協会の社員となることができる。',
+ '保証協会の社員である宅地建物取引業者は、弁済業務保証金分担金を納付した場合であっても、主たる事務所につき営業保証金を供託しなければならない。'],
+ ch:CNT, prev:'イ',
+ fig:{type:'rel',title:'弁済業務保証金の還付',h:200,nodes:[['c','取引の相手','',60,40],['h','保証協会','認証する',180,150],['k','供託所','',300,40]],
+ edges:[['c','h','① 認証の申出','go'],['c','k','② 還付請求','go'],['h','k','弁済業務保証金を供託','go']],note:'加入できる保証協会は1つだけ。社員は営業保証金の供託が免除される。'}},
+
+{n:33, stem:'宅地建物取引業者の業務に関する次のa～dの記述のうち、宅地建物取引業法の規定によれば、正しいものはいくつあるか。',
+ st:['宅地建物取引業者の従業者は、正当な理由がある場合でなければ、宅地建物取引業の業務を補助したことについて知り得た秘密を他に漏らしてはならず、従業者でなくなった後であっても同様である。',
+ '宅地建物取引業者は、宅地建物取引業に係る契約の締結の勧誘をするに際し、相手方等が当該契約を締結しない旨の意思を表示したにもかかわらず、当該勧誘を継続してはならない。',
+ '宅地建物取引業者は、手付について貸付けその他信用の供与をすることにより契約の締結を誘引する行為をしてはならないが、手付金を分割して受領することとして契約の締結を誘引することは、信用の供与に当たらない。',
+ '宅地建物取引業者は、建物の売買の媒介に際し、買主に対して将来の価格上昇について利益を生ずることが確実であると誤解させるべき断定的判断を提供しても、それが故意によるものでなければ、宅地建物取引業法に違反しない。'],
+ ch:CNT, prev:'イ',
+ fig:{type:'tbl',title:'禁止される勧誘・誘引',head:['行為','OK？'],rows:[['退職後に秘密を漏らす','×（退職後も守秘義務）'],['断られた後も勧誘を続ける','×'],['手付の貸付け・分割・後払い','×（信用の供与）'],['手付の減額','○'],['断定的判断の提供','×（故意がなくても違反）']]}},
+
+{n:34, stem:'宅地建物取引業者Aが、Bから、B所有の宅地の売却の媒介を依頼された場合における媒介契約に関する次のa～dの記述のうち、宅地建物取引業法の規定によれば、正しいものはいくつあるか。',
+ st:['Aは、Bとの間で媒介契約を締結したときは、遅滞なく、宅地建物取引業法第34条の2第1項の規定に基づく書面を作成して記名押印し、Bに交付しなければならない。',
+ 'Aは、当該宅地を売買すべき価額について意見を述べるときは、その根拠を明らかにしなければならない。',
+ 'AがBとの間で専任媒介契約を締結した場合、Aは、Bに対し、当該専任媒介契約に係る業務の処理状況を2週間に1回以上報告しなければならない。',
+ 'AがBとの間で専任媒介契約を締結する場合、Bからの申出がなくても、有効期間の満了時に自動的に更新する旨の特約を定めることができる。'],
+ ch:CNT, prev:'ア',
+ fig:{type:'tbl',title:'媒介契約の種類',head:['','一般','専任','専属専任'],rows:[['有効期間','制限なし','3か月以内','3か月以内'],['業務報告','—','2週間に1回以上','1週間に1回以上'],['指定流通機構','任意','7日以内','5日以内'],['更新','—','依頼者の申出のみ','依頼者の申出のみ']],note:'媒介契約書は「記名押印」。35条・37条書面は「記名」だけ。'}},
+
+{n:35, stem:'宅地建物取引業者が行う宅地建物取引業法第35条に規定する重要事項の説明に関する次の記述のうち、同法の規定によれば、正しいものはどれか。',
+ ch:['区分所有建物の貸借の媒介を行う場合、当該一棟の建物及びその敷地の管理者が、管理組合から委託を受けて管理事務を行うマンション管理業者であるときは、その旨を説明しなければならない。',
+ '建物の貸借の媒介を行う場合において、当該建物について石綿の使用の有無の調査の結果が記録されていないときは、宅地建物取引業者は、自ら石綿の使用の有無の調査を行い、その結果を説明しなければならない。',
+ '宅地の売買の媒介を行う場合、代金に関する金銭の貸借のあっせんの内容及び当該あっせんに係る金銭の貸借が成立しないときの措置については、説明する必要はない。',
+ '建物の貸借の媒介を行う場合、契約期間及び契約の更新に関する事項を説明しなければならない。'],
+ prev:'ア',
+ fig:{type:'tbl',title:'重要事項説明（35条）',head:['事項','売買','貸借'],rows:[['【改正】管理業者管理者方式である旨','○','×'],['石綿調査の記録','記録があれば説明','記録があれば説明'],['ローンのあっせん','○','—'],['契約期間・更新','—','○']],note:'石綿は自分で調査する義務まではない。'}},
+
+{n:36, stem:'宅地建物取引業者が行う宅地建物取引業法第35条に規定する重要事項の説明に係る書面（以下この問において「35条書面」という。）及び同法第37条の規定により交付すべき書面（以下この問において「37条書面」という。）に関する次のa～dの記述のうち、同法の規定によれば、正しいものの組合せはどれか。',
+ st:['建物の売買の媒介において、天災その他不可抗力による損害の負担に関する定めがあるときは、その内容を35条書面及び37条書面の両方に記載しなければならない。',
+ '建物の貸借の媒介において、借賃以外の金銭の授受に関する定めがあるときは、その額及び授受の目的を35条書面に記載しなければならないが、37条書面に記載する必要はない。',
+ '宅地の売買の媒介において、契約の解除に関する事項は35条書面に記載しなければならず、その定めがあるときは37条書面にも記載しなければならない。',
+ '宅地の売買の媒介において、損害賠償額の予定又は違約金に関する事項は35条書面に記載しなければならず、その定めがあるときは37条書面にも記載しなければならない。'],
+ ch:['a、b','a、c','b、d','c、d'], prev:'ア',
+ fig:{type:'tbl',title:'35条書面と37条書面',head:['事項','35条','37条'],rows:[['契約の解除','○','定めがあれば○'],['損害賠償額の予定・違約金','○','定めがあれば○'],['代金・借賃以外の金銭','○','定めがあれば○'],['天災等の危険負担','×','定めがあれば○'],['租税公課の負担','×','定めがあれば○']]}},
+
+{n:37, stem:'宅地建物取引業法第37条の規定により交付すべき書面（以下この問において「37条書面」という。）に関する次の記述のうち、同法の規定によれば、正しいものはどれか。',
+ ch:['宅地建物取引業者が自ら貸主として建物を賃貸する場合、当該宅地建物取引業者は、借主に37条書面を交付しなければならない。',
+ '宅地建物取引業者が建物の貸借の媒介を行う場合、借賃の額並びにその支払の時期及び方法は、37条書面に必ず記載しなければならない事項である。',
+ '宅地建物取引業者が建物の貸借の媒介を行う場合、天災その他不可抗力による損害の負担に関する定めがあるときであっても、その内容を37条書面に記載する必要はない。',
+ '宅地建物取引業者が建物の貸借の媒介を行う場合、37条書面には宅地建物取引士の記名が必要であるが、借主が宅地建物取引業者であるときは、宅地建物取引士の記名は不要である。'],
+ prev:'ア',
+ fig:{type:'tbl',title:'37条書面（貸借）',head:['ポイント','ルール'],rows:[['自ら貸主','宅建業の「取引」ではない → 交付不要'],['借賃の額・支払時期・方法','必ず記載'],['天災等の危険負担','定めがあれば記載'],['相手が宅建業者','交付も宅建士の記名も省略不可']]}},
+
+{n:38, stem:'宅地建物取引業者Aが、自ら売主として、宅地建物取引業者ではないBとの間で宅地の売買契約を締結した場合における宅地建物取引業法第37条の2の規定に基づくいわゆるクーリング・オフに関する次のa～dの記述のうち、正しいものはいくつあるか。',
+ st:['Bが、Aからの申出により、Bの自宅で買受けの申込みをした場合、Bは、Aからクーリング・オフについて書面で告げられた日から起算して8日を経過するまでは、申込みの撤回を行うことができる。',
+ 'Aが他の宅地建物取引業者Cに当該宅地の売却の媒介を依頼していた場合において、BがCの事務所で買受けの申込みをしたときは、Bは、申込みの撤回を行うことができない。',
+ 'Bがクーリング・オフにより契約の解除を行った場合、Aは、受領した手付金を返還しなければならないが、契約の解除に伴う損害賠償をBに請求することはできる。',
+ 'AとBとの間で、クーリング・オフができる期間を、クーリング・オフについて書面で告げられた日から起算して5日間とする旨の特約を定めた場合、その特約は有効である。'],
+ ch:CNT, prev:'ア',
+ fig:{type:'tbl',title:'クーリング・オフできる場所？',head:['申込みの場所','クーリング・オフ'],rows:[['売主業者の事務所','できない'],['媒介・代理を頼まれた業者の事務所','できない'],['買主が自分から申し出た自宅・勤務先','できない'],['業者が申し出た買主の自宅','できる'],['喫茶店・テント張りの案内所','できる']],note:'書面で告げられた日から8日。損害賠償・違約金は請求できない。買主に不利な特約は無効。'}},
+
+{n:39, stem:'宅地建物取引業者Aが、自ら売主として、宅地建物取引業者ではないBとの間で締結する売買契約に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['Aが他人Cから取得する契約を締結していない宅地について、AがCとの間で停止条件付きの取得契約を締結している場合、Aは、Bとの間で当該宅地の売買契約を締結することができる。',
+ '宅地の割賦販売の契約において、Bが賦払金の支払の義務を履行しない場合、Aは、20日以上の相当の期間を定めてその支払を書面で催告し、その期間内に支払がないときは、契約を解除することができる。',
+ 'Aが割賦販売を行った場合、代金の額の10分の3を超える額の金銭の支払を受けた後であっても、Aは、Bが残代金の担保のための抵当権の設定等の措置を講じる見込みがあるときは、所有権の移転登記をせずに所有権を留保することができる。',
+ '建築工事完了前のマンションについて、Aが当該工事に必要な建築確認を受けていないときは、Aは、Bとの間で当該マンションの売買契約を締結してはならない。'],
+ prev:'イ',
+ fig:{type:'nums',title:'8種制限のひっかけ',items:[['他人物売買の例外','停止条件付きでもOK','停止条件付きはダメ'],['割賦販売の催告','20日以上','30日以上・書面'],['所有権留保','見込みがあれば留保OK','3/10超を受領後は原則ダメ'],['未完成物件','—','建築確認の後でないと契約不可']]}},
+
+{n:40, stem:'宅地建物取引業者Aが、自ら売主として、宅地建物取引業者ではないBとの間で建物の売買契約を締結した場合に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['BがAに手付を交付した後、Aが契約の履行に着手していない場合には、Bが既に中間金の支払など契約の履行に着手していたとしても、Bは、手付を放棄して契約を解除することができる。',
+ 'AとBとの間で、Bが手付を放棄して契約を解除することができるのは契約締結の日から14日以内に限る旨の特約を定めた場合、その特約は有効である。',
+ 'AとBとの間で、Aが種類又は品質に関して契約の内容に適合しない場合の担保責任を負う期間を建物の引渡しの日から2年間とし、その期間でもBは損害賠償を請求することはできない旨の特約を定めた場合、その特約は有効である。',
+ 'AとBとの間で債務不履行を理由とする契約の解除に伴う損害賠償の額を予定しなかった場合、Aが請求することができる損害賠償の額は、代金の額の10分の2が上限となる。'],
+ prev:'イ',
+ fig:{type:'rel',title:'手付解除は「相手方」が着手するまで',h:190,nodes:[['b','買主B','手付を交付・中間金も支払済',75,60],['a','売主A','まだ履行に着手していない',285,60]],
+ edges:[['b','a','手付放棄で解除できる','win']],note:'自分が着手していてもOK。損害賠償の予定がなければ2割の上限はかからない（実損額を請求）。'}},
+
+{n:41, stem:'宅地建物取引業者A及びB（ともに消費税課税事業者）は、Aが貸主から、Bが借主から、それぞれ媒介の依頼を受けて共同して媒介を行い、居住の用に供する建物（1か月の借賃20万円。消費税等相当額を含まない。）の賃貸借契約を成立させた。貸主及び借主のいずれからも、報酬について特別の承諾は得ていない。この場合においてA及びBが受領する報酬に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['Aは貸主から、Bは借主から、それぞれ借賃の1.1か月分である22万円を上限として報酬を受領することができる。',
+ 'A及びBが受領することができる報酬の額の合計額の上限は、22万円である。',
+ 'Bは借主から11万円を超える報酬を受領することができないが、Aは貸主から22万円を上限として報酬を受領することができる。',
+ 'A及びBが受領することができる報酬の額の合計額の上限は、44万円である。'],
+ prev:'エ',
+ fig:{type:'rel',title:'居住用の貸借の報酬（借賃20万円）',h:210,nodes:[['l','貸主','承諾なし',60,50],['a','業者A','',180,50],['t','借主','承諾なし',60,170],['b','業者B','',180,170],['s','合計','22万円まで',305,110]],
+ edges:[['l','a','11万円まで','go'],['t','b','11万円まで','go'],['a','s','','go'],['b','s','','go']],note:'一方から0.55か月分（11万円）。双方合わせて1.1か月分（22万円）。業者が何社いても合計は同じ。'}},
+
+{n:42, stem:'宅地建物取引業法に規定する監督処分に関する次のa～dの記述のうち、正しいものはいくつあるか。',
+ st:['甲県知事の登録を受けている宅地建物取引士Aが、乙県内において宅地建物取引士として行う事務に関し不正な行為をした場合、乙県知事は、Aに対して事務禁止処分をすることができる。',
+ '国土交通大臣は、甲県知事の免許を受けた宅地建物取引業者が業務停止処分事由に該当し情状が特に重い場合には、その免許を取り消すことができる。',
+ '都道府県知事は、宅地建物取引業者に対して業務停止処分をしたときであっても、その旨を公告する必要はない。',
+ '宅地建物取引士が事務禁止処分に違反した場合であっても、その登録を消除されることはない。'],
+ ch:CNT, prev:'イ',
+ fig:{type:'tbl',title:'だれが処分できる？',head:['処分','免許権者・登録知事','行為地の知事'],rows:[['指示処分','○','○'],['業務停止・事務禁止','○','○'],['免許取消・登録消除','○','×']],note:'業務停止・免許取消は公告が必要。事務禁止処分に違反すると登録消除。'}},
+
+{n:43, stem:'宅地建物取引業者の事務所以外の場所及び帳簿等に関する次の記述のうち、宅地建物取引業法の規定によれば、正しいものはどれか。',
+ ch:['甲県知事の免許を受けた宅地建物取引業者が、乙県内に契約の締結を行う案内所を設置する場合、業務を開始する日の10日前までに、乙県知事にのみ所定の事項を届け出ればよい。',
+ '宅地建物取引業者は、一団の宅地の分譲のために設置する案内所であれば、そこで契約の締結や申込みの受付を行わない場合であっても、成年者である専任の宅地建物取引士を1人以上置かなければならない。',
+ '宅地建物取引業者は、業務に関する帳簿を、各事業年度の末日をもって閉鎖し、閉鎖後10年間保存しなければならない（当該業者が自ら売主となる新築住宅に係るものを除く。）。',
+ '宅地建物取引業者は、取引の関係者から請求があったときは、従業者名簿をその者の閲覧に供しなければならないが、業務に関する帳簿については、取引の関係者に閲覧させる義務はない。'],
+ prev:'ウ',
+ fig:{type:'tbl',title:'従業者名簿と帳簿',head:['','従業者名簿','帳簿'],rows:[['保存期間','最終記載から10年','閉鎖後5年（新築・自ら売主は10年）'],['閲覧させる義務','あり','なし']],note:'案内所の届出は、免許権者と所在地の知事の両方へ。'}},
+
+{n:44, stem:'宅地建物取引業者Aが、自ら売主として、宅地建物取引業者ではないBとの間で、建築工事完了前の建物（代金4,000万円）の売買契約を締結する場合（Bへの所有権移転の登記はされていないものとする。）における宅地建物取引業法第41条に規定する手付金等の保全措置（以下この問において「保全措置」という。）に関する次のa～dの記述のうち、同法の規定によれば、正しいものはいくつあるか。',
+ st:['Aは、手付金として150万円を受領した後、引渡し前に中間金として50万円を受領する場合、いずれについても保全措置を講じる必要はない。',
+ 'Aが、保全措置を講じなければならないにもかかわらずこれを講じないときは、Bは、手付金等を支払わないことができる。',
+ 'Aが保険事業者との間で保証保険契約を締結して保全措置を講じる場合、その保険期間は、少なくとも保証保険契約が成立した時から当該建物の引渡しまでの期間であることを要する。',
+ 'AとBとの間で手付金を代金の10分の3とする定めをした場合であっても、Aがそのうち代金の10分の2を超える部分について保全措置を講じたときは、その定めは有効である。'],
+ ch:CNT, prev:'ア',
+ fig:{type:'bar',title:'代金4,000万円・未完成物件（0〜1,000万円を拡大）',max:1000,unit:'万円',marks:[[200,'5% = 200万（これを超えたら保全措置）'],[800,'20% = 800万（手付の上限）']],bars:[[150,'手付 150'],[50,'中間金 50']],note:'150＋50＝200万円はちょうど5%で「超えない」ので保全措置は不要。'}},
+
+{n:45, stem:'特定住宅瑕疵担保責任の履行の確保等に関する法律に基づく住宅販売瑕疵担保保証金の供託又は住宅販売瑕疵担保責任保険契約の締結（以下この問において「資力確保措置」という。）に関する次の記述のうち、同法の規定によれば、正しいものはどれか。',
+ ch:['宅地建物取引業者が新築住宅の売買の媒介をする場合、当該宅地建物取引業者は、資力確保措置を講じなければならない。',
+ '自ら売主として新築住宅を販売する宅地建物取引業者は、住宅販売瑕疵担保保証金を、その主たる事務所の最寄りの供託所に限らず、任意の供託所に供託することができる。',
+ '住宅販売瑕疵担保保証金の額を算定する際の新築住宅の合計戸数の算定に当たっては、販売新築住宅のうち、その床面積の合計が55㎡以下のものは、その2戸をもって1戸とする。',
+ '自ら売主として新築住宅を販売する宅地建物取引業者は、基準日に係る資力確保措置の状況について、基準日から50日以内に、その免許を受けた国土交通大臣又は都道府県知事に届け出なければならない。'],
+ prev:'ア',
+ fig:{type:'nums',title:'住宅瑕疵担保履行法',items:[['義務を負う人','媒介業者も','自ら売主の業者だけ'],['供託所','どこでも','主たる事務所の最寄り'],['55㎡以下の住宅','—','2戸で1戸と数える'],['基準日の届出','50日以内','3週間以内（50日経過で新規契約禁止）']]}}
+];
+
+const EX={"1": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "判決文は、丙が背信的悪意者でも、丁は「丁自身が背信的悪意者と評価されるのでない限り」乙に対抗できるとする（最判平8.10.29）。丁自身の評価を問わないとする点が誤り。"}, "イ": {"ok": false, "text": "単なる悪意者も民法177条の「第三者」に当たり、乙は登記がなければ丙に対抗できない（最判昭32.9.19等）。"}, "ウ": {"ok": false, "text": "背信的悪意者は登記の欠缺を主張する正当な利益を有しないにとどまり、甲丙間の売買契約自体が当然に無効となるわけではない。判決文も丙からの転得者丁の所有権取得を前提としている（最判平8.10.29）。"}, "エ": {"ok": true, "text": "背信的悪意者は民法177条の第三者に当たらず、乙は登記なくして対抗できる（最判昭43.8.2）。"}}, "trap": "背信的悪意者からの転得者は「相対的」に判断する（転得者自身が背信的悪意者でなければ保護）。単なる悪意者は177条の第三者に含まれる。"}, "2": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "行為能力の制限によって取り消すことができる行為は、制限行為能力者本人も取り消すことができる（民法120条1項）。"}, "イ": {"ok": false, "text": "成年被後見人の法律行為は、成年後見人の同意を得ていても取り消すことができる（日常生活に関する行為を除く）（民法9条）。"}, "ウ": {"ok": true, "text": "建物の賃貸借で民法602条の期間（3年）を超えるものは、保佐人の同意を要する行為であり（民法13条1項9号）、同意がなければ取り消すことができる（同条4項）。"}, "エ": {"ok": false, "text": "制限行為能力者が行為能力者であることを信じさせるため詐術を用いたときは、その行為を取り消すことができない（民法21条）。"}}, "trap": "成年被後見人は同意があっても取消し可。被保佐人の短期賃貸借を超える賃貸（建物3年・土地5年）は同意が必要。"}, "3": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "権利が確定することなく裁判上の請求等の事由が終了した場合は、その終了の時から「6か月」を経過するまで時効は完成しない（民法147条1項）。"}, "イ": {"ok": true, "text": "催告による完成猶予（民法150条1項）。催告による猶予期間中の再度の催告は完成猶予の効力を有しない（同条2項）。"}, "ウ": {"ok": false, "text": "天災等による時効の完成猶予は、障害が消滅した時から「3か月」を経過するまで（民法161条）。"}, "エ": {"ok": false, "text": "時効の利益は、あらかじめ放棄することができない（民法146条）。時効完成後の放棄は可能。"}}, "trap": "完成猶予の期間：裁判上の請求等が途中終了＝6か月、催告＝6か月（再度の催告は無効）、天災等＝3か月。"}, "4": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "任意代理人の復代理人選任の要件（民法104条）は正しいが、選任・監督についてのみ責任を負うとする旧105条は削除され、本人との委任契約の債務不履行の一般原則により責任を負う。"}, "イ": {"ok": false, "text": "法定代理人は、自己の責任で、いつでも復代理人を選任することができる（民法105条前段）。やむを得ない事由があるときは選任・監督についてのみ責任を負う（同条後段）。"}, "ウ": {"ok": false, "text": "代理権の濫用で、相手方がその目的を知り、又は知ることができたときは、その行為は代理権を有しない者がした行為とみなされる（民法107条）。"}, "エ": {"ok": true, "text": "双方代理は、債務の履行及び本人があらかじめ許諾した行為を除き、無権代理とみなされる（民法108条1項）。"}}, "trap": "法定代理人はいつでも復代理人を選任可（やむを得ないときに責任が軽減）。代理権の濫用・双方代理は「無権代理とみなす」。"}, "5": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "正しいものはa・b・cの三つ。【a＝○】元本確定期日の定め・変更に後順位抵当権者等の承諾は不要（民法398条の6第1項・2項、398条の4第2項）。"}, "イ": {"ok": false, "text": "【b＝○】元本確定前の被担保債権の範囲の変更に後順位抵当権者等の承諾は不要（民法398条の4第2項）。"}, "ウ": {"ok": true, "text": "【c＝○】元本確定前の根抵当権の全部譲渡には根抵当権設定者の承諾が必要（民法398条の12第1項）。以上より三つ。"}, "エ": {"ok": false, "text": "【d＝×】極度額の変更は、利害関係を有する者の承諾を得なければ、することができない（民法398条の5）。範囲・債務者・確定期日の変更（承諾不要）と区別する。"}}, "trap": "範囲・債務者・確定期日の変更は後順位者の承諾不要、極度額の変更は利害関係人の承諾が必要。全部譲渡は設定者の承諾が必要。"}, "6": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "委託を受けた保証人に対する債権者の情報提供義務（民法458条の2）。保証人が個人か法人かを問わない。"}, "イ": {"ok": false, "text": "連帯債務者の一人に対する履行の請求は、他の連帯債務者に対して効力を生じない（相対的効力。民法441条）。"}, "ウ": {"ok": false, "text": "主たる債務者が相殺権・取消権・解除権を有するときは、保証人は、これらの権利の行使によって主たる債務者が債務を免れるべき限度で、債権者に対して債務の履行を拒むことができる（民法457条3項）。"}, "エ": {"ok": false, "text": "公正証書による保証意思宣明の規律は、保証人が法人である場合には適用されない（民法465条の6第3項）。"}}, "trap": "履行状況の情報提供は「委託を受けた保証人」の請求による。連帯債務の履行請求は相対効。公正証書の保証意思宣明は個人保証のみ。"}, "7": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "（a、b）bが誤り。譲受人が譲渡制限の意思表示について悪意又は重大な過失があるときは、債務者は履行を拒むことができる（民法466条3項）。"}, "イ": {"ok": true, "text": "（a、c）【a＝○】譲渡制限特約付き金銭債権が譲渡された場合の債務者の供託（民法466条の2第1項）。【c＝○】債権譲渡の対抗要件（民法467条1項・2項）。"}, "ウ": {"ok": false, "text": "（b、d）いずれも誤り。【d＝×】悪意による不法行為に基づく損害賠償債務の債務者は、相殺をもって債権者に対抗することができない（民法509条1号）。"}, "エ": {"ok": false, "text": "（c、d）dが誤り。"}}, "trap": "譲渡制限特約があっても譲渡は有効、悪意・重過失の譲受人には履行拒絶可。悪意の不法行為・生命身体侵害の損害賠償債務は受働債権にできない。"}, "8": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "注文者の供した材料の性質又は注文者の与えた指図によって生じた不適合を理由として、注文者は履行の追完請求等をすることができない（請負人がその不適当を知りながら告げなかったときを除く）（民法636条）。"}, "イ": {"ok": true, "text": "委任の任意解除権（民法651条1項）。相手方に不利な時期の解除等は、やむを得ない事由がない限り損害賠償が必要（同条2項）。"}, "ウ": {"ok": false, "text": "委任事務の処理に費用を要するときは、委任者は、受任者の請求により、その前払をしなければならない（民法649条）。"}, "エ": {"ok": false, "text": "注文者の破産による請負人の解除は、仕事を完成しない間に限られる（民法642条1項ただし書）。"}}, "trap": "受任者は費用の前払請求ができる。注文者破産の場合、請負人は仕事完成後は解除できない。"}, "9": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "賃貸人たる地位の移転は、賃貸物である不動産について所有権の移転の登記をしなければ、賃借人に対抗することができない（民法605条の2第3項）。"}, "イ": {"ok": false, "text": "対抗要件を備えた不動産の賃借人は、不動産を占有する第三者に対して返還の請求をすることができる（民法605条の4第2号）。"}, "ウ": {"ok": false, "text": "賃貸人たる地位が譲受人に移転したときは、敷金の返還に係る債務は譲受人が承継する（民法605条の2第4項）。"}, "エ": {"ok": true, "text": "賃借物の全部滅失等による賃貸借の当然終了（民法616条の2）。"}}, "trap": "地位の移転を賃借人に主張するには譲受人の「登記」が必要。敷金返還債務は新賃貸人に承継される。"}, "10": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "自筆証書に添付する財産目録は自書を要しない。ただし目録の毎葉（自書によらない記載が両面にあるときは両面）に署名し、印を押さなければならない（民法968条2項）。"}, "イ": {"ok": false, "text": "遺言書保管所に保管されている遺言書については、家庭裁判所の検認は不要（遺言書保管法11条）。"}, "ウ": {"ok": true, "text": "遺言の撤回の自由（民法1022条）。"}, "エ": {"ok": false, "text": "兄弟姉妹には遺留分がない（民法1042条1項）。"}}, "trap": "財産目録は自書不要（署名押印は必要）。保管制度を使った自筆証書遺言は検認不要。兄弟姉妹に遺留分なし。"}, "11": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "法定更新（使用継続による更新）は、建物がある場合に限られる（借地借家法5条2項）。"}, "イ": {"ok": false, "text": "更新後の存続期間は、最初の更新では更新の日から20年、2回目以降は10年（借地借家法4条）。"}, "ウ": {"ok": false, "text": "第三者が借地上の建物を取得した場合に借地権設定者が賃借権の譲渡又は転貸を承諾しないときは、その第三者は建物等の買取りを請求することができる（借地借家法14条）。"}, "エ": {"ok": true, "text": "期間満了時の建物買取請求権（借地借家法13条1項）。"}}, "trap": "更新後の期間は「最初20年・以降10年」。建物買取請求は借地権者（13条）にも建物取得者（14条）にもある。"}, "12": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "正しいものはa・b・cの三つ。【a＝○】期間満了等による終了は転借人に通知しなければ対抗できず、通知から6か月で転貸借も終了する（借地借家法34条）。"}, "イ": {"ok": false, "text": "【b＝○】賃貸人からの解約申入れは、正当事由があれば申入れの日から6か月を経過することによって終了（借地借家法27条1項・28条）。"}, "ウ": {"ok": true, "text": "【c＝○】造作買取請求権（借地借家法33条）は任意規定であり、特約で排除できる（同法37条に33条は含まれない）。以上より三つ。"}, "エ": {"ok": false, "text": "【d＝×】法定更新された場合、その期間は「定めがないもの」とされる（借地借家法26条1項ただし書）。"}}, "trap": "法定更新後は「期間の定めなし」。造作買取請求権は特約で排除できる任意規定。"}, "13": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "管理不全専有部分管理人が管理不全専有部分を処分（売却等）するには、裁判所の許可に加え、その区分所有者の同意が必要（法46条の8以下。民法264条の10第3項の管理不全土地管理人と同様の規律）。"}, "イ": {"ok": true, "text": "所有者不明専有部分管理人は、裁判所の許可を得て、所有者不明専有部分を売却等することができる（法46条の2以下。民法264条の3第2項と同様の規律）。"}, "ウ": {"ok": false, "text": "管理不全共用部分管理命令は、利害関係人の請求により発する（法46条の13）。"}, "エ": {"ok": false, "text": "国内管理人の選任は「することができる」任意の制度（法6条の2）。規約で選任を義務付けることは可能。"}}, "trap": "【改正】所有者不明専有部分＝裁判所の許可で売却可／管理不全専有部分＝許可＋区分所有者の同意が必要。国内管理人は任意。"}, "14": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "施行日（令和8年4月1日）前に住所等の変更があった場合にも申請義務は課され、その期限は原則として施行日から2年を経過する日（令和10年3月31日）までとなる（令和3年法律第24号附則）。"}, "イ": {"ok": false, "text": "相続人に対する遺贈による所有権の移転の登記は、登記権利者（受遺者）が単独で申請することができる（不動産登記法63条3項）。"}, "ウ": {"ok": true, "text": "相続人申告登記の申出により、相続登記の申請義務を履行したものとみなされる（不動産登記法76条の3第1項・2項）。"}, "エ": {"ok": false, "text": "新築した建物の表題登記の申請期間は、所有権を取得した日から「1か月以内」（不動産登記法47条1項）。"}}, "trap": "【改正】施行前の住所変更も義務の対象（令和10年3月31日まで）。相続人への遺贈は単独申請可。表示の登記の期限は「1か月」。"}, "15": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "区域区分（市街化区域と市街化調整区域の区分）は都市計画区域について定めるもので、準都市計画区域には定めることができない（都市計画法7条1項・8条2項）。"}, "イ": {"ok": false, "text": "地区計画は、用途地域が定められている区域のほか、用途地域が定められていない区域のうち一定の要件に該当する土地の区域にも定めることができる（都市計画法12条の5第1項）。"}, "ウ": {"ok": false, "text": "都市計画施設の区域内の建築許可（法53条1項）は、非常災害のため必要な応急措置として行う行為については不要（同項3号）。"}, "エ": {"ok": true, "text": "事業地内の土地建物等の有償譲渡の届出（都市計画法66条・67条1項）。施行者は届出から30日以内なら予定対価の額で買い取ることができる。"}}, "trap": "53条（施設区域内）には非常災害の例外あり、65条（事業地内）には例外なし。事業地内の有償譲渡は「施行者」へ届出。"}, "16": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "正しいものはa・b・cの三つ。【a＝○】新たに設置される公共施設の管理者となる者等とは「協議」で足りる（都市計画法32条2項）。既存の関係公共施設の管理者は「協議＋同意」（同条1項）。"}, "イ": {"ok": false, "text": "【b＝○】工事完了公告前の建築制限の例外（都市計画法37条2号）。"}, "ウ": {"ok": true, "text": "【c＝○】工事廃止の届出（都市計画法38条）。以上より三つ。"}, "エ": {"ok": false, "text": "【d＝×】一般承継人（相続人等）は当然に地位を承継するが（都市計画法44条）、土地の所有権等を取得した特定承継人は、都道府県知事の承認を受けて地位を承継できる（同法45条）。"}}, "trap": "地位の承継：一般承継＝当然／特定承継＝知事の承認。工事の廃止は「届出」（許可ではない）。"}, "17": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "防火地域内の建築物の構造制限（建築基準法61条、施行令136条の2第1号）。"}, "イ": {"ok": false, "text": "住宅の居室の採光に有効な開口部の面積は、床面積の「7分の1」以上が原則（建築基準法28条1項）。令和5年4月1日施行の改正で、一定の照明設備を設けた場合は10分の1まで緩和できる。"}, "ウ": {"ok": false, "text": "避雷設備の設置義務は、高さ「20m」を超える建築物（建築基準法33条）。"}, "エ": {"ok": false, "text": "建築物の敷地は、これに接する道の境より「高く」しなければならず、建築物の地盤面は周囲の土地より「高く」しなければならない（建築基準法19条1項）。"}}, "trap": "採光は住宅の居室で原則1/7（照明設置で1/10まで緩和）。避雷設備20m超、非常用昇降機31m超。"}, "18": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "（a、c）cが誤り。ホテル・旅館は第二種中高層住居専用地域では建築できない（第一種住居地域では3,000㎡以下なら可）（建築基準法48条3項・別表第二(に)）。"}, "イ": {"ok": true, "text": "（a、b）【a＝○】小学校は工業地域・工業専用地域以外の用途地域で建築可（別表第二(い)）。【b＝○】第一種住居地域ではホテル・旅館は3,000㎡以下なら建築可（別表第二(ほ)）。"}, "ウ": {"ok": false, "text": "（b、d）dが誤り。2項道路は原則として中心線から水平距離「2m」の線が道路境界線とみなされる（建築基準法42条2項）。"}, "エ": {"ok": false, "text": "（c、d）いずれも誤り。"}}, "trap": "ホテル・旅館は第一種住居（3,000㎡以下）から可、中高層住専は不可。2項道路は中心線から2m。"}, "19": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "特定盛土等規制区域内の届出（宅地造成及び特定盛土等規制法27条1項）。なお一定規模以上の工事は許可が必要（同法30条1項）。"}, "イ": {"ok": false, "text": "軽微な変更は許可不要で、遅滞なく、その旨を都道府県知事に届け出れば足りる（同法16条1項ただし書・2項）。"}, "ウ": {"ok": false, "text": "擁壁等の除却工事の届出は、工事に着手する日の「14日前」まで（同法21条3項）。"}, "エ": {"ok": false, "text": "公共施設用地の転用の届出は、転用した日から「14日以内」（同法21条4項）。21日以内は、区域指定の際に工事中の工事主の届出（同条1項）。"}}, "trap": "届出期限：指定時の工事中＝21日以内、擁壁等の除却＝14日前、転用＝14日以内、特定盛土等規制区域の届出＝30日前。"}, "20": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "施行地区内の建築行為等の許可権者は、都道府県知事（市の区域内で個人施行者・組合・区画整理会社・市が施行する場合等は当該市の長）又は国土交通大臣であり、「市町村長」一般ではない（土地区画整理法76条1項）。"}, "イ": {"ok": false, "text": "換地処分は原則として工事完了後に行うが、規準・規約・定款・施行規程に別段の定めがあれば、工事完了前でも行うことができる（同法103条2項ただし書）。"}, "ウ": {"ok": true, "text": "換地処分の方法（同法103条1項）。"}, "エ": {"ok": false, "text": "総会の議決等による組合の解散には「都道府県知事」の認可が必要（同法45条2項）。"}}, "trap": "76条の許可権者・組合の設立や解散の認可権者は「知事」系で、市町村長ではない。換地処分は通知で行う。"}, "21": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "正しいものはaの一つ。【a＝○】耕作の事業を行う者が2a未満の農地を自己の農作物の育成等のための農業用施設に供する場合は、法4条1項の許可不要（法4条1項、施行規則29条1号）。"}, "イ": {"ok": false, "text": "【b＝×】農地の賃貸借は、登記がなくても、農地の引渡しがあったときは、その後その農地について物権を取得した第三者に対抗できる（法16条）。"}, "ウ": {"ok": false, "text": "【c＝×】市街化区域内の特例（届出）は転用（法4条・5条）についての制度であり、耕作目的の権利移動（法3条）には適用されない。"}, "エ": {"ok": false, "text": "【d＝×】合意解約でも原則として許可が必要だが、引渡しの期限前6か月以内に成立した書面による合意解約等は許可不要とされるなど例外がある（法18条1項ただし書）。"}}, "trap": "市街化区域の届出特例は4条・5条のみ（3条にはない）。農地賃貸借は「引渡し」で対抗可。"}, "22": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "事後届出は、契約を締結した日から起算して「2週間以内」（国土利用計画法23条1項）。"}, "イ": {"ok": false, "text": "対価の額は届出事項だが（同法23条1項6号）、事後届出に対する勧告は土地の利用目的についてのみで、対価の額は勧告の対象外（同法24条1項）。"}, "ウ": {"ok": false, "text": "市街化調整区域内の事後届出の対象面積は5,000㎡以上（同法23条2項1号ロ）。"}, "エ": {"ok": true, "text": "対価を得て行う地上権の設定契約は「土地売買等の契約」に当たり（同法14条1項）、都市計画区域外では10,000㎡以上が届出対象（同法23条2項1号ハ）。"}}, "trap": "事後届出の勧告は利用目的だけ（対価の額は対象外）。地上権・賃借権の設定も対価があれば届出対象。"}, "23": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "配偶者・直系血族・生計を一にする親族など特別の関係がある者に対する譲渡には、3,000万円特別控除は適用されない（租税特別措置法35条2項1号、同法施行令23条2項・20条の3第1項）。"}, "イ": {"ok": false, "text": "軽減税率の特例は、譲渡した年の1月1日において所有期間が「10年」を超える居住用財産の譲渡が対象（租税特別措置法31条の3第1項）。"}, "ウ": {"ok": false, "text": "居住の用に供さなくなった日から「3年」を経過する日の属する年の12月31日までの譲渡が対象（租税特別措置法35条2項）。"}, "エ": {"ok": false, "text": "長期・短期の区分は、譲渡した年の「1月1日」における所有期間が5年を超えるかどうかで判定する（租税特別措置法31条1項）。"}}, "trap": "所有期間は「譲渡年の1月1日」基準。軽減税率は10年超、3,000万円控除は所有期間要件なし・転居後3年目の年末まで。"}, "24": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "固定資産税の納税義務者は賦課期日（1月1日）現在の固定資産課税台帳上の所有者（地方税法343条1項・2項、359条）。売買当事者間の日割り精算は私法上の合意にすぎない。"}, "イ": {"ok": false, "text": "小規模住宅用地の課税標準は価格の「6分の1」（地方税法349条の3の2第2項）。3分の1は一般住宅用地（200㎡超の部分）。"}, "ウ": {"ok": false, "text": "家屋の免税点は「20万円」であり（地方税法351条）、25万円なら課税される。令和8年度税制改正で家屋の免税点の引上げが行われたが、令和9年度以後の年度分から適用されるため、令和8年度分は従前どおり20万円。"}, "エ": {"ok": false, "text": "標準税率は100分の1.4（地方税法350条1項）。標準税率は財政上の必要があるときにこれを超える税率を定めることができる目安の税率である。"}}, "trap": "【改正の時期に注意】不動産取得税の免税点は令和8年4月1日以後の取得から引上げ。固定資産税（家屋20万円）は令和8年度分は据え置き。"}, "25": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "鑑定評価に当たっては、案件に即して適切に適用すべきであり、地域分析・個別分析により把握した対象不動産に係る市場の特性等を適切に反映した複数の鑑定評価の手法を適用すべきとされる（不動産鑑定評価基準総論第8章第7節）。"}, "イ": {"ok": true, "text": "取引事例は、取引事情が正常なもの又は正常なものに補正することができるものでなければならない（不動産鑑定評価基準総論第7章第1節Ⅲ）。"}, "ウ": {"ok": false, "text": "対象不動産が土地のみである場合でも、造成地・埋立地など再調達原価を適切に求めることができるときは、原価法を適用することができる（不動産鑑定評価基準総論第7章第1節Ⅱ）。"}, "エ": {"ok": false, "text": "証券化対象不動産の鑑定評価における収益価格を求めるに当たっては、DCF法を適用しなければならない（直接還元法による検証も行う）（不動産鑑定評価基準各論第3章）。"}}, "trap": "原価法は造成地・埋立地にも使える。手法は複数併用が原則、証券化対象不動産はDCF法必須。"}, "26": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "建物の敷地に供する目的で取引される土地は、現況や所在地を問わず宅地に当たる（法2条1号）。"}, "イ": {"ok": false, "text": "建物の敷地に供する目的で取引される土地は、所在する区域を問わず宅地に当たる（法2条1号）。"}, "ウ": {"ok": true, "text": "用途地域内の土地は、道路・公園・河川・広場・水路の用に供せられているものを除き宅地に当たる（法2条1号、施行令1条）。駐車場はこの除外に含まれない。"}, "エ": {"ok": false, "text": "建物の一部も法に規定する建物に含まれる（法2条2号）。"}}, "trap": "宅地＝①建物の敷地に供する目的で取引される土地（場所不問）＋②用途地域内の土地（道路・公園・河川・広場・水路を除く）。"}, "27": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "正しいものはaの一つ。【a＝○】拘禁刑以上の刑に処せられ、執行猶予期間中の者は欠格（法5条1項5号）。役員Bが該当するのでA社も免許を受けられない（同項12号）。"}, "イ": {"ok": false, "text": "【b＝×】不正手段による免許取得等で免許を取り消された法人の、聴聞の公示日前60日以内の役員は、取消しの日から「5年」を経過しなければ免許を受けられない（法5条1項2号）。"}, "ウ": {"ok": false, "text": "【c＝×】欠格事由に該当する者が既に役員を退任していれば、D社の役員に欠格者はおらず、D社は免許を受けることができる（法5条1項12号は現在の役員等を基準とする）。"}, "エ": {"ok": false, "text": "【d＝×】営業に関し成年者と同一の行為能力を有しない未成年者は、その法定代理人（法人である場合はその役員を含む）が欠格事由に該当しなければ免許を受けられる（法5条1項11号）。"}}, "trap": "【改正】「拘禁刑以上の刑」は罪名不問（執行猶予中も欠格）。法人の欠格は「現在の」役員・政令使用人で判断する。"}, "28": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "更新の申請について処分がなされないときは、従前の免許は、有効期間の満了後もその処分がなされるまでの間は、なお効力を有する（宅建業法3条4項）。"}, "イ": {"ok": true, "text": "更新後の免許の有効期間は、従前の免許の有効期間の満了の日の翌日から起算する（宅建業法3条5項）。"}, "ウ": {"ok": false, "text": "免許換えは新たな免許であり、その有効期間は新たに5年となる（宅建業法3条2項・7条）。"}, "エ": {"ok": false, "text": "免許換えをしなければならない場合に該当しながら新たな免許を受けていないことが判明したときは、免許権者は免許を取り消さなければならない（宅建業法66条1項5号）。"}}, "trap": "更新申請中に期間満了→処分まで従前の免許が有効。免許換えを怠ると必要的取消し。"}, "29": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "登録が消除されたとき又は宅建士証が効力を失ったときは、速やかに宅建士証を交付を受けた知事に返納しなければならない（宅建業法22条の2第6項）。"}, "イ": {"ok": false, "text": "名義貸しをした宅建士は、指示処分（宅建業法68条1項2号）又は事務禁止処分（同条2項）の対象となり、情状が特に重いときは登録の消除（同法68条の2第1項4号）もある。"}, "ウ": {"ok": false, "text": "試験の合格の効力に期限はない（合格は一生有効）。登録の時期にも制限はない。"}, "エ": {"ok": false, "text": "勤務先の宅建業者の商号又は名称・免許証番号は資格登録簿の登載事項であり（宅建業法18条2項、施行規則）、変更があれば遅滞なく変更の登録を申請しなければならない（同法20条）。"}}, "trap": "勤務先業者の「商号・免許証番号」が変わったら宅建士側も変更の登録が必要。合格は一生有効。"}, "30": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "事務所には、業務に従事する者「5人に1人以上」の割合で専任の宅建士を置く（宅建業法31条の3第1項、施行規則15条の5の3）。"}, "イ": {"ok": false, "text": "法定数を欠いたときは、「2週間以内」に必要な措置を執らなければならない（宅建業法31条の3第3項）。"}, "ウ": {"ok": false, "text": "宅建業者（法人の場合は役員）が宅建士であるときは、その者が主として業務に従事する事務所等については、成年者である専任の宅建士とみなされる（宅建業法31条の3第2項）。未成年者でも役員であればみなされる。"}, "エ": {"ok": true, "text": "他の業者の分譲の代理・媒介を行う案内所で、契約の締結又は申込みの受付を行う場合も、専任の宅建士を1人以上置く（宅建業法31条の3第1項、施行規則15条の5の2）。"}}, "trap": "設置は「5人に1人」、欠けたら「2週間以内」。役員である宅建士は未成年でも専任の宅建士とみなされる。"}, "31": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "還付を受けられる額は、Aが供託した営業保証金の額の範囲内（宅建業法27条1項）。本店のみなら1,000万円だが、支店があればその分も含めた供託額が限度となる。"}, "イ": {"ok": false, "text": "保管替えを請求できるのは金銭のみで供託している場合に限られる（宅建業法29条1項）。有価証券を含むときは、移転後の最寄りの供託所に新たに供託しなければならない。"}, "ウ": {"ok": false, "text": "不足額を供託したときは、2週間以内に「免許権者（甲県知事）」に届け出る（宅建業法28条2項）。"}, "エ": {"ok": true, "text": "新たに事務所を設置した場合の営業保証金の供託と届出（宅建業法26条・25条4項・5項、施行令2条の4）。"}}, "trap": "還付の限度は「供託額」。保管替えは金銭のみの場合だけ。不足額の供託の届出先は免許権者。"}, "32": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "正しいものはaの一つ。【a＝○】苦情の解決の申出及びその結果の社員への周知（宅建業法64条の5第4項）。"}, "イ": {"ok": false, "text": "【b＝×】弁済を受ける額について認証をするのは「保証協会」（宅建業法64条の8第2項）。"}, "ウ": {"ok": false, "text": "【c＝×】一の保証協会の社員である者は、他の保証協会の社員となることができない（宅建業法64条の4第1項）。"}, "エ": {"ok": false, "text": "【d＝×】保証協会の社員は、営業保証金の供託が免除される（宅建業法64条の13）。"}}, "trap": "認証は「保証協会」、供託所への還付請求はその後。保証協会は1つだけ加入できる。"}, "33": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "正しいものはa・bの二つ。"}, "イ": {"ok": true, "text": "【a＝○】従業者の守秘義務は退職後も続く（宅建業法75条の3）。【b＝○】再勧誘の禁止（同法47条の2第3項、施行規則16条の11）。以上より二つ。"}, "ウ": {"ok": false, "text": "【c＝×】手付金の分割払いを認めることも信用の供与に当たり、禁止される（同法47条3号、解釈・運用の考え方）。"}, "エ": {"ok": false, "text": "【d＝×】利益を生ずることが確実であると誤解させるべき断定的判断の提供は、故意の有無を問わず禁止される（同法47条の2第1項）。"}}, "trap": "手付の分割・貸付け・後払いはいずれも信用の供与。断定的判断の提供は故意がなくても違反。"}, "34": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "正しいものはa・b・cの三つ。【a＝○】媒介契約書面は宅建業者が記名押印して交付する（宅建業法34条の2第1項）。35条・37条書面と異なり押印が必要。"}, "イ": {"ok": false, "text": "【b＝○】価額について意見を述べるときは根拠を明示（同法34条の2第2項）。"}, "ウ": {"ok": true, "text": "【c＝○】専任媒介は2週間に1回以上、専属専任媒介は1週間に1回以上の報告（同法34条の2第9項）。以上より三つ。"}, "エ": {"ok": false, "text": "【d＝×】専任媒介契約の更新は依頼者の申出によるものに限られ、自動更新の特約は無効（同法34条の2第4項・10項）。"}}, "trap": "媒介契約書は「記名押印」（35条・37条書面は記名のみ）。専任媒介の更新は依頼者の申出が必要。"}, "35": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "令和8年4月1日施行の施行規則改正で加わった「管理業者管理者方式である旨」の説明は、区分所有建物の売買・交換の場合に限られ、貸借は対象外（施行規則16条の2）。"}, "イ": {"ok": false, "text": "石綿使用の有無の調査結果が記録されているときはその内容を説明するが、記録がない場合に宅建業者が自ら調査する義務はない（施行規則16条の4の3第4号、解釈・運用の考え方）。"}, "ウ": {"ok": false, "text": "金銭の貸借のあっせんの内容及びあっせんに係る金銭の貸借が成立しないときの措置は説明事項（宅建業法35条1項12号）。"}, "エ": {"ok": true, "text": "建物の貸借では、契約期間及び契約の更新に関する事項が説明事項（施行規則16条の4の3第8号）。"}}, "trap": "【改正】管理業者管理者方式の説明は売買・交換のみ。石綿は「記録があれば内容を説明」で、調査義務はない。"}, "36": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "（a、b）いずれも誤り。【a＝×】天災その他不可抗力による損害の負担は37条書面の任意的記載事項であり（宅建業法37条1項10号）、35条書面の記載事項ではない。【b＝×】借賃以外の金銭の授受は、定めがあれば37条書面にも記載が必要（同法37条2項3号）。"}, "イ": {"ok": false, "text": "（a、c）aが誤り。"}, "ウ": {"ok": false, "text": "（b、d）bが誤り。"}, "エ": {"ok": true, "text": "（c、d）【c＝○】契約の解除（同法35条1項8号・37条1項7号）。【d＝○】損害賠償額の予定・違約金（同法35条1項9号・37条1項8号）。"}}, "trap": "35条・37条の両方：解除／損害賠償予定・違約金／代金以外の金銭／ローンあっせん（37条は定めがあるとき）。危険負担・租税公課は37条だけ。"}, "37": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "自ら貸主となる賃貸は宅建業の「取引」に当たらず、宅建業法の規制（37条書面の交付義務を含む）は及ばない（宅建業法2条2号）。"}, "イ": {"ok": true, "text": "借賃の額・支払時期・支払方法は貸借の37条書面の必要的記載事項（宅建業法37条2項2号）。"}, "ウ": {"ok": false, "text": "天災その他不可抗力による損害の負担（危険負担）の定めは、貸借でも、定めがあれば37条書面の記載事項（宅建業法37条2項1号による37条1項10号の準用）。"}, "エ": {"ok": false, "text": "相手方が宅建業者であっても、37条書面の交付と宅建士の記名は省略できない（宅建業法37条3項）。"}}, "trap": "業者間でも37条書面の交付・記名は必要。貸借でも解除・損害賠償予定・天災等の定めは記載事項。"}, "38": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "正しいものはa・bの二つ。"}, "イ": {"ok": true, "text": "【a＝○】買主が「自ら申し出た」場合の自宅・勤務先がクーリング・オフ不可の場所であり、業者からの申出による自宅は対象（宅建業法37条の2第1項、施行規則16条の5）。【b＝○】売主から媒介を依頼された他の宅建業者の事務所は「事務所等」に当たる（施行規則16条の5）。以上より二つ。"}, "ウ": {"ok": false, "text": "【c＝×】クーリング・オフに伴う損害賠償・違約金の支払を請求することはできない（同法37条の2第1項後段）。"}, "エ": {"ok": false, "text": "【d＝×】買主に不利な特約は無効（同法37条の2第4項）。"}}, "trap": "自宅・勤務先は「買主から申し出た」ときだけ不可場所。媒介業者・代理業者の事務所も事務所等。"}, "39": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "自己の所有に属しない宅地建物の売買契約締結の制限の例外となる取得契約からは、停止条件付きのものが除かれる（宅建業法33条の2第1号）。"}, "イ": {"ok": false, "text": "割賦販売の契約の解除等の制限では、「30日以上」の相当の期間を定めて書面で催告しなければならない（宅建業法42条1項）。"}, "ウ": {"ok": false, "text": "代金の10分の3を超える額の支払を受けた後は、原則として所有権を留保できない。例外は、受領額が10分の3以下の場合や、残代金の担保措置を講じる見込みがない場合である（宅建業法43条1項）。"}, "エ": {"ok": true, "text": "工事完了前の物件は、建築確認等の処分があった後でなければ、売買契約を締結してはならない（宅建業法36条）。"}}, "trap": "停止条件付きの取得契約は他人物売買の例外にならない。割賦販売の催告は「30日以上・書面」。"}, "40": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "手付解除の制限は「相手方が」履行に着手するまで（宅建業法39条2項）。B自身が着手していても、相手方Aが未着手なら手付放棄による解除ができる（最大判昭40.11.24参照）。"}, "イ": {"ok": false, "text": "解約手付の解除を制限する特約は、買主に不利なものとして無効（宅建業法39条3項）。"}, "ウ": {"ok": false, "text": "通知期間を引渡しから2年以上とする点は有効だが、損害賠償請求を排除する部分は民法の規定より買主に不利で無効（宅建業法40条1項・2項）。特約全体を有効とする点が誤り。"}, "エ": {"ok": false, "text": "損害賠償の予定額の制限（10分の2）は、予定をした場合の規制。予定をしなければ実際の損害額を請求できる（宅建業法38条1項）。"}}, "trap": "手付解除の期限は「相手方」の履行着手。損害賠償の予定がなければ2割の上限は働かない。"}, "41": {"ans": "イ", "ex": {"ア": {"ok": false, "text": "居住用建物の貸借の媒介では、依頼者の一方から受領できるのは、承諾がない限り借賃の0.5か月分（税込0.55か月分＝11万円）以内（報酬告示第四）。"}, "イ": {"ok": true, "text": "複数の業者が関与しても、依頼者双方から受領できる報酬の合計は借賃の1か月分（税込1.1か月分＝22万円）以内（報酬告示第四）。"}, "ウ": {"ok": false, "text": "貸主の承諾もないので、Aも貸主から11万円を超えて受領できない（報酬告示第四ただし書）。"}, "エ": {"ok": false, "text": "合計の上限は22万円であり、業者ごとに1か月分ずつ受領できるわけではない。"}}, "trap": "居住用の貸借：一方から0.55か月分（承諾があれば1.1か月分まで）、双方合計は常に1.1か月分以内。"}, "42": {"ans": "ア", "ex": {"ア": {"ok": true, "text": "正しいものはaの一つ。【a＝○】宅建士が登録をしている知事の管轄区域外で事務に関し不正をした場合、その行為地の知事も指示処分・事務禁止処分をすることができる（宅建業法68条3項・4項）。"}, "イ": {"ok": false, "text": "【b＝×】免許取消処分ができるのは免許権者（甲県知事）のみ（宅建業法66条1項）。国土交通大臣は知事免許業者の免許を取り消せない。"}, "ウ": {"ok": false, "text": "【c＝×】業務停止処分・免許取消処分をしたときは、その旨を公告しなければならない（宅建業法70条1項）。"}, "エ": {"ok": false, "text": "【d＝×】事務禁止処分に違反したときは、登録を消除しなければならない（宅建業法68条の2第1項4号）。"}}, "trap": "免許取消・登録消除は「免許権者・登録知事」だけ。指示・停止（事務禁止）は行為地の知事もできる。"}, "43": {"ans": "エ", "ex": {"ア": {"ok": false, "text": "案内所等の届出は、免許権者（甲県知事）及び所在地を管轄する知事（乙県知事）の双方にする（宅建業法50条2項、施行規則19条3項）。"}, "イ": {"ok": false, "text": "案内所等に専任の宅建士の設置が必要なのは、契約の締結又は申込みの受付を行う場合に限られる（宅建業法31条の3第1項、施行規則15条の5の2）。"}, "ウ": {"ok": false, "text": "帳簿の保存期間は閉鎖後「5年間」（自ら売主となる新築住宅に係るものは10年間）（施行規則18条3項）。従業者名簿は最終記載日から10年間（施行規則17条の2第4項）。"}, "エ": {"ok": true, "text": "従業者名簿は取引の関係者の請求により閲覧させる義務がある（宅建業法48条4項）。帳簿にはこのような閲覧義務の規定はない（同法49条）。"}}, "trap": "名簿＝10年・閲覧義務あり、帳簿＝閉鎖後5年（新築自ら売主10年）・閲覧義務なし。"}, "44": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "正しいものはa・b・cの三つ。【a＝○】未完成物件は代金の5％（200万円）以下かつ1,000万円以下なら保全措置不要（宅建業法41条1項、施行令3条の5）。手付金と中間金の合計200万円は5％を「超え」ないので不要。"}, "イ": {"ok": false, "text": "【b＝○】保全措置が講じられないときは、買主は手付金等を支払わないことができる（同法41条4項）。"}, "ウ": {"ok": true, "text": "【c＝○】保証保険契約の保険期間の要件（同法41条3項）。以上より三つ。"}, "エ": {"ok": false, "text": "【d＝×】手付の額は代金の10分の2を超えることができず、超える部分は無効（同法39条1項・3項）。保全措置を講じても手付の額の制限は免れない。"}}, "trap": "5％「超」で保全措置が必要（ちょうど5％は不要）。保全措置と手付の額の制限（2割）は別の規制。"}, "45": {"ans": "ウ", "ex": {"ア": {"ok": false, "text": "資力確保措置の義務を負うのは、自ら売主となる宅建業者に限られ、媒介をする宅建業者は対象外（住宅瑕疵担保履行法11条1項）。"}, "イ": {"ok": false, "text": "住宅販売瑕疵担保保証金は、主たる事務所の最寄りの供託所に供託する（住宅瑕疵担保履行法11条）。"}, "ウ": {"ok": true, "text": "床面積55㎡以下の住宅は2戸をもって1戸とする（住宅瑕疵担保履行法11条3項、同法施行令）。"}, "エ": {"ok": false, "text": "届出は基準日から「3週間以内」（住宅瑕疵担保履行法12条1項、同法施行規則16条1項）。50日は、届出をしない場合に新たな売買契約が禁止されるまでの期間（同法13条）。"}}, "trap": "供託所は「主たる事務所の最寄り」。55㎡以下は2戸で1戸。届出3週間・契約禁止は50日経過後。"}};
+
+</script>
+<script>
+(() => {
+const KANA=['ア','イ','ウ','エ'], ABCD=['a','b','c','d'];
+const CORRECT_BEFORE=[2,3,14,19,20,23,26,27,29,33];
+const CATS=[
+  {id:'mori',name:'権利関係',area:'もりのエリア',from:1,to:14},
+  {id:'kawa',name:'法令上の制限',area:'かわのエリア',from:15,to:22},
+  {id:'hama',name:'税・価格',area:'はまべのエリア',from:23,to:25},
+  {id:'machi',name:'宅建業法ほか',area:'まちのエリア',from:26,to:45}];
+const catOf=n=>CATS.find(c=>n>=c.from&&n<=c.to);
+const Q={}; QUESTIONS.forEach(q=>{Q[q.n]=Object.assign(q,EX[q.n]);});
+const DAY=864e5, NEXT=[0,DAY,3*DAY,Infinity];
+const LINES={
+  greet:['まちがえた問題は、花のタネ。正解するたびに芽→つぼみ→花と育つよ！','3回つづけて正解すると花がさいて卒業。のこりのタネを数えてみよう。','ひっかけ数字は、図でおぼえると忘れにくいよ。'],
+  ok:['やったね、せいかい！','その調子！花がのびてきた！','かんぺき！どんぐりゲット！','いいね、ちゃんと覚えてる！'],
+  ng:['おしい！ここがひっかけポイントだよ。','だいじょうぶ。まちがいは花のタネ！','図でたしかめてから、もう一回いってみよう。'],
+  bloom:['花がさいた！この問題は卒業だよ！']};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hl=s=>esc(s).replace(/「([^」]{1,24})」/g,'<span class="hl">「$1」</span>').replace(/【([abcd])＝([○×])】/g,'<b>【$1＝$2】</b>');
+
+/* ---------- state ---------- */
+const KEY='takken-island-v1';
+function fresh(){
+  const q={};
+  for(let n=1;n<=45;n++){
+    const ok=CORRECT_BEFORE.includes(n);
+    q[n]={box:ok?1:0,wrong:ok?0:1,right:ok?1:0,due:ok?Date.now()+DAY:0,last:null};
+  }
+  return {v:1,q,acorns:0,best:0,answered:0,updatedAt:0};
+}
+let state=fresh();
+try{const raw=localStorage.getItem(KEY); if(raw){const s=JSON.parse(raw); if(s&&s.v===1) state=s;}}catch(e){}
+let sound=true; try{sound=localStorage.getItem(KEY+'-sound')!=='off';}catch(e){}
+let cloud=null, saveTimer=null;
+function save(){
+  state.updatedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
+  if(cloud){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{cloud.set(JSON.parse(JSON.stringify(state))).catch(()=>{});},700);}
+}
+async function initCloud(){
+  try{
+    if(!window.claude||!window.claude.use) return;
+    const [user,db]=await Promise.all([claude.use('user'),claude.use('db')]);
+    if(!user||!db) return;
+    const id=await user.id(); if(!id) return;
+    const ref=db.collection('data/users/'+id).doc('progress');
+    const snap=await ref.get();
+    cloud=ref;
+    if(snap.exists){const r=snap.data(); if(r&&r.v===1&&(r.updatedAt||0)>(state.updatedAt||0)){state=r;try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){} if(current.name==='quiz')head(); else route(current);}}
+    else if(state.updatedAt) await ref.set(JSON.parse(JSON.stringify(state)));
+  }catch(e){}
+}
+const S=n=>state.q[n];
+const inNote=n=>S(n).wrong>0&&S(n).box<3;
+const isDue=n=>inNote(n)&&S(n).due<=Date.now();
+const noteList=()=>Object.keys(state.q).map(Number).filter(inNote);
+const dueList=()=>noteList().filter(isDue);
+
+/* ---------- art ---------- */
+const kapi=(mood='')=>`<svg class="kapi ${mood}" viewBox="0 0 100 100" role="img" aria-label="カピ先生">
+ <ellipse cx="50" cy="94" rx="30" ry="5" fill="rgba(0,0,0,.12)"/>
+ <path d="M16 70c0-22 15-38 36-38s32 14 32 34c0 16-12 26-34 26S16 86 16 70z" fill="#b27a4a"/>
+ <path d="M22 72c0-18 12-31 30-31s27 11 27 28" fill="none" stroke="#c99063" stroke-width="5" stroke-linecap="round"/>
+ <ellipse cx="34" cy="38" rx="6" ry="5" fill="#8e5d36"/><ellipse cx="66" cy="38" rx="6" ry="5" fill="#8e5d36"/>
+ <path d="M28 56c0-12 10-20 22-20s22 8 22 20c0 10-9 16-22 16s-22-6-22-16z" fill="#c48b58"/>
+ <ellipse cx="50" cy="63" rx="13" ry="8" fill="#8e5d36"/>
+ <ellipse cx="45" cy="61" rx="2" ry="1.6" fill="#3d2616"/><ellipse cx="55" cy="61" rx="2" ry="1.6" fill="#3d2616"/>
+ <g class="eye-n"><ellipse cx="39" cy="51" rx="2.6" ry="3.2" fill="#3d2616"/><ellipse cx="61" cy="51" rx="2.6" ry="3.2" fill="#3d2616"/></g>
+ <g class="eye-h" fill="none" stroke="#3d2616" stroke-width="2.4" stroke-linecap="round"><path d="M35 52q4-5 8 0"/><path d="M57 52q4-5 8 0"/></g>
+ <ellipse cx="33" cy="58" rx="4" ry="2.4" fill="#f29a9a" opacity=".7"/><ellipse cx="67" cy="58" rx="4" ry="2.4" fill="#f29a9a" opacity=".7"/>
+ <path d="M50 34c-2-10 4-18 14-20-1 10-6 17-14 20z" fill="#63c76a"/><path d="M50 34c4-6 8-10 13-19" stroke="#3f8f3a" stroke-width="1.6" fill="none"/>
+ <path class="sweat" d="M74 40c3 4 4 7 1 9s-6-1-4-5z" fill="#7cc7f2"/>
+</svg>`;
+function plant(box,cat){
+  const c=`var(--c-${cat})`;
+  if(box<=0) return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 32c-1-7-5-11-9-12 4 4 5 8 5 12zM20 32c1-8 3-14 8-17-3 5-4 11-4 17zM18 32c0-6 1-10 3-13" fill="#6a9b3a" stroke="#4f7c2a" stroke-width="1" stroke-linejoin="round"/><ellipse cx="20" cy="33" rx="10" ry="3" fill="rgba(0,0,0,.12)"/></svg>`;
+  if(box===1) return `<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="33" rx="9" ry="3" fill="rgba(0,0,0,.12)"/><path d="M20 33V22" stroke="#3f9a45" stroke-width="2.4" stroke-linecap="round"/><path d="M20 23c-6 0-9-4-9-8 5 0 9 3 9 8zM20 22c5 0 9-3 9-8-5 0-9 3-9 8z" fill="#6fd06a"/></svg>`;
+  if(box===2) return `<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="34" rx="9" ry="3" fill="rgba(0,0,0,.12)"/><path d="M20 34V15" stroke="#3f9a45" stroke-width="2.4" stroke-linecap="round"/><path d="M20 27c-5 0-8-3-8-7 4 0 8 3 8 7zM20 24c5 0 8-3 8-7-4 0-8 3-8 7z" fill="#6fd06a"/><path d="M20 6c4 3 5 7 3 10h-6c-2-3-1-7 3-10z" fill="${c}"/></svg>`;
+  return `<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="35" rx="9" ry="3" fill="rgba(0,0,0,.12)"/><path d="M20 35V20" stroke="#3f9a45" stroke-width="2.4" stroke-linecap="round"/><path d="M20 30c-5 0-8-3-8-7 4 0 8 3 8 7z" fill="#6fd06a"/>${[0,72,144,216,288].map(a=>`<ellipse cx="20" cy="8.5" rx="4.6" ry="6" fill="${c}" transform="rotate(${a} 20 15)"/>`).join('')}<circle cx="20" cy="15" r="3.6" fill="#ffe27a"/></svg>`;
+}
+const ico={
+  water:'<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 14h14v10a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z" fill="#fff"/><path d="M20 17l7-6" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M9 14a4 4 0 0 1 8 0" stroke="#fff" stroke-width="2.4" fill="none"/><path d="M27 15v3M29 13v2" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+  note:'<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="7" y="5" width="18" height="23" rx="3" fill="var(--c-mori)"/><path d="M11 11h10M11 16h10M11 21h6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  all:'<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="var(--c-kawa)"/><path d="M5 16h22M16 5c4 4 4 18 0 22M16 5c-4 4-4 18 0 22" stroke="#fff" stroke-width="1.8" fill="none"/></svg>',
+  dice:'<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="5" fill="var(--c-hama)"/><circle cx="12" cy="12" r="2" fill="#fff"/><circle cx="20" cy="20" r="2" fill="#fff"/><circle cx="16" cy="16" r="2" fill="#fff"/></svg>',
+  on:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a8.5 8.5 0 0 1 0 13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  off:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  ok:'<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" stroke-width="5"/></svg>',
+  ng:'<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 9l22 22M31 9L9 31" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>'};
+document.documentElement.style.setProperty('--pin',`url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 1c5 3 8 7 8 11a8 8 0 0 1-16 0c0-4 3-8 8-11z"/></svg>')}")`);
+
+/* ---------- figures ---------- */
+const tw=(s,px)=>[...s].reduce((w,ch)=>w+(ch.charCodeAt(0)<256?px*.6:px),0);
+function relSVG(f){
+  const nodes={};
+  f.nodes.forEach(([id,lab,sub,x,y])=>{
+    const w=Math.max(tw(lab,14),sub?tw(sub,10.5):0)+20, h=sub?44:34;
+    nodes[id]={id,lab,sub,x,y,w,h};
+  });
+  const clip=(n,dx,dy)=>{const t=Math.min((n.w/2+3)/Math.abs(dx||1e-9),(n.h/2+3)/Math.abs(dy||1e-9));return [n.x+dx*t,n.y+dy*t];};
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  const grow=(x0,y0,x1,y1)=>{minX=Math.min(minX,x0);maxX=Math.max(maxX,x1);minY=Math.min(minY,y0);maxY=Math.max(maxY,y1);};
+  Object.values(nodes).forEach(n=>grow(n.x-n.w/2,n.y-n.h/2,n.x+n.w/2,n.y+n.h/2));
+  let edges='',labels='';
+  (f.edges||[]).forEach(([a,b,lab,kind,off])=>{
+    const A=nodes[a],B=nodes[b]; off=off||0;
+    const mx=(A.x+B.x)/2,my=(A.y+B.y)/2,dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy)||1;
+    const cx=mx-dy/len*off, cy=my+dx/len*off;
+    const p0=clip(A,cx-A.x,cy-A.y), p1=clip(B,cx-B.x,cy-B.y);
+    const arrow=kind==='lose'?'':`marker-end="url(#m-${kind})"`;
+    edges+=`<path class="e-${kind}" d="M${p0[0].toFixed(1)} ${p0[1].toFixed(1)}Q${cx.toFixed(1)} ${cy.toFixed(1)} ${p1[0].toFixed(1)} ${p1[1].toFixed(1)}" ${arrow}/>`;
+    if(lab){
+      const lx=.25*p0[0]+.5*cx+.25*p1[0], ly=.25*p0[1]+.5*cy+.25*p1[1]+4, w=tw(lab,11);
+      grow(lx-w/2,ly-12,lx+w/2,ly+4);
+      labels+=`<text class="e-lab l-${kind}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle">${esc(lab)}</text>`;
+    }
+  });
+  const nodeSvg=Object.values(nodes).map(n=>`<rect class="n-box" x="${n.x-n.w/2}" y="${n.y-n.h/2}" width="${n.w}" height="${n.h}" rx="14"/>
+    <text class="n-lab" x="${n.x}" y="${n.y+(n.sub?-2:5)}" text-anchor="middle">${esc(n.lab)}</text>${n.sub?`<text class="n-sub" x="${n.x}" y="${n.y+14}" text-anchor="middle">${esc(n.sub)}</text>`:''}`).join('');
+  const pad=8, vb=[minX-pad,minY-pad,maxX-minX+pad*2,maxY-minY+pad*2].map(v=>v.toFixed(0)).join(' ');
+  const mk=k=>`<marker id="m-${k}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="m-${k}" d="M0 0L10 5L0 10z"/></marker>`;
+  return `<svg class="rel" viewBox="${vb}" role="img" aria-label="${esc(f.title)}"><defs>${mk('go')}${mk('win')}</defs>${edges}${nodeSvg}${labels}</svg>`;
+}
+function barSVG(f){
+  const W=340,x0=10,x1=330,sc=v=>x0+(x1-x0)*v/f.max;
+  let x=x0,segs='';const cols=['var(--c-kawa)','var(--c-mori)','var(--c-hama)'];
+  const legend=f.bars.map(([v,lab],i)=>`<tspan fill="${cols[i%3]}">■</tspan> ${esc(lab)}`).join('　');
+  f.bars.forEach(([v,lab],i)=>{const w=sc(v)-x0;segs+=`<rect x="${x}" y="58" width="${w}" height="26" rx="6" fill="${cols[i%3]}"/>`;x+=w;});
+  const marks=f.marks.map(([v,lab],i)=>`<line x1="${sc(v)}" x2="${sc(v)}" y1="${i?16:34}" y2="90" stroke="var(--ng)" stroke-width="2" stroke-dasharray="4 3"/><text class="e-lab l-go" x="${Math.min(sc(v),W-4)}" y="${i?12:30}" text-anchor="${sc(v)>W*.6?'end':'start'}" dx="${sc(v)>W*.6?-2:4}">${esc(lab)}</text>`).join('');
+  const ticks=[0,f.max/2,f.max].map(v=>`<text class="n-sub" x="${sc(v)}" y="120" text-anchor="${v===0?'start':v===f.max?'end':'middle'}">${v}${f.unit}</text>`).join('');
+  return `<svg class="rel" viewBox="0 0 ${W} 124" role="img" aria-label="${esc(f.title)}"><rect x="${x0}" y="58" width="${x1-x0}" height="26" rx="6" fill="var(--card)" stroke="var(--card-line)" stroke-width="1.5"/>${segs}${marks}${ticks}<text class="n-sub" x="${x0}" y="102">${legend}</text></svg>`;
+}
+function figHTML(f){
+  if(!f) return '';
+  let body='';
+  if(f.type==='rel') body=`<div class="scroll">${relSVG(f)}</div>`;
+  else if(f.type==='bar') body=`<div class="scroll">${barSVG(f)}</div>`;
+  else if(f.type==='tbl') body=`<div class="scroll"><table class="t"><thead><tr>${f.head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${f.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  else if(f.type==='nums') body=`<div class="nums">${f.items.map(([l,t,r])=>`<div class="num"><span class="lab">${esc(l)}</span><span class="trap ${t==='—'?'none':''}">${t==='—'?'':'✕ '+esc(t)}</span><span class="right">○ ${esc(r)}</span></div>`).join('')}</div>`;
+  else if(f.type==='line') body=`<div class="steps">${f.steps.map(([a,b],i)=>`${i?'<span class="arrow">▶</span>':''}<div class="step"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join('')}</div>`;
+  return `<div class="fig"><h3>図でかくにん：${esc(f.title)}</h3>${body}${f.note?`<p class="note">${esc(f.note)}</p>`:''}</div>`;
+}
+
+/* ---------- sound + fx ---------- */
+let ac=null;
+function beep(seq){
+  if(!sound) return;
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    let t=ac.currentTime;
+    seq.forEach(([f,d])=>{const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d+.02);t+=d*.8;});
+  }catch(e){}
+}
+const sOk=()=>beep([[784,.12],[988,.12],[1319,.22]]), sNg=()=>beep([[330,.16],[262,.26]]), sBloom=()=>beep([[659,.1],[784,.1],[988,.1],[1319,.1],[1568,.3]]);
+function leaves(n=26){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const fx=document.getElementById('fx'),cols=['#7fd36b','#f28fae','#f0bd3e','#5fb2ee','#3fae5a'];
+  for(let i=0;i<n;i++){const e=document.createElement('i');e.style.left=Math.random()*100+'%';e.style.background=cols[i%cols.length];e.style.setProperty('--dx',(Math.random()*160-80)+'px');e.style.animationDelay=Math.random()*.4+'s';fx.appendChild(e);setTimeout(()=>e.remove(),2200);}
+}
+let toastT;
+function toast(msg){let t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t);}t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2200);}
+
+/* ---------- views ---------- */
+const view=document.getElementById('view');
+let current={name:'home'};
+function head(){
+  document.getElementById('acornN').textContent=state.acorns.toLocaleString();
+  const sb=document.getElementById('soundBtn');sb.innerHTML=sound?ico.on:ico.off;sb.setAttribute('aria-label',sound?'効果音をオフにする':'効果音をオンにする');
+}
+function route(r){current=r;head();({home,quiz:quizView,result:resultView,detail:detailView})[r.name](r);}
+
+function home(){
+  const note=noteList(), due=dueList(), bloom=Object.values(state.q).filter(s=>s.box>=3).length;
+  const seeds=note.length;
+  const msg=seeds===0?'すごい！まちがいノートの花がぜんぶさいたよ。全問チャレンジで仕上げよう！'
+    :due.length?`きょう水やりする問題が${due.length}問あるよ。まずは「今日の復習」から！`
+    :`今日の水やりはおわり！まちがいノートにはあと${seeds}問。つづけて練習もできるよ。`;
+  view.innerHTML=`
+  <section class="talk">${kapi(due.length?'':'happy')}<div class="bubble"><span class="name">カピ先生</span>${esc(msg)}<small>${esc(pick(LINES.greet))}</small><span class="next">▼</span></div></section>
+  <section class="stats" aria-label="きろく">
+    <div class="stat"><b>${seeds}</b><span>まちがいノート</span></div>
+    <div class="stat"><b>${bloom}<small style="font-size:14px">/45</small></b><span>さいた花</span></div>
+    <div class="stat"><b>${state.best}</b><span>最高れんぞく正解</span></div>
+  </section>
+  <section class="modes">
+    <button class="mode primary" data-go="due"><span class="ic">${ico.water}</span><span><b>今日の復習（${due.length}問）</b><span>まちがえた問題を、間隔をあけてくり返す</span></span></button>
+    <button class="mode" data-go="note"><span class="ic" style="background:var(--ng-pale)">${ico.note}</span><span><b>まちがいノート（${seeds}問）</b><span>花がさいていない問題をぜんぶ</span></span></button>
+    <button class="mode" data-go="rand"><span class="ic" style="background:var(--paper)">${ico.dice}</span><span><b>ランダム10問</b><span>45問からシャッフルで出題</span></span></button>
+    <button class="mode" data-go="all"><span class="ic" style="background:var(--leaf-pale)">${ico.all}</span><span><b>全45問チャレンジ</b><span>本番と同じ順番でとき直す</span></span></button>
+  </section>
+  <section class="panel">
+    <h2>分野でえらぶ <span class="tag">まちがいノートの問題だけ出題</span></h2>
+    <div class="chips">${CATS.map(c=>{const k=note.filter(n=>n>=c.from&&n<=c.to).length;return `<button class="chip" data-cat="${c.id}" ${k?'':'disabled style="opacity:.5"'}><i style="background:var(--c-${c.id})"></i>${c.name} ${k}問</button>`;}).join('')}</div>
+  </section>
+  <section class="panel">
+    <h2>島の花畑 <span class="tag">マスをタップすると問題と解説が見られます</span></h2>
+    <div class="garden">${CATS.map(c=>{
+      const ns=[];for(let n=c.from;n<=c.to;n++)ns.push(n);
+      const b=ns.filter(n=>S(n).box>=3).length;
+      return `<div class="plot ${c.id}"><div class="plot-h"><span><span class="dot" style="background:var(--c-${c.id})"></span>${c.area}・${c.name}</span><span class="c">花 ${b}/${ns.length}</span></div>
+      <div class="tiles">${ns.map(n=>`<button class="tile ${isDue(n)?'due':''}" data-q="${n}" aria-label="問${n} ${['雑草','芽','つぼみ','花'][Math.min(3,S(n).box)]}${isDue(n)?'・今日の復習':''}"><span class="no">${n}</span>${plant(S(n).box,c.id)}</button>`).join('')}</div></div>`;}).join('')}</div>
+    <div class="legend"><span>${plant(0,'mori')}まちがい</span><span>${plant(1,'mori')}1回正解</span><span>${plant(2,'mori')}2回正解</span><span>${plant(3,'mori')}卒業</span><span><i style="width:8px;height:8px;border-radius:50%;background:var(--ng);display:inline-block"></i>今日の復習</span></div>
+    <button class="danger" id="reset">記録をリセット</button>
+  </section>`;
+  view.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>start(b.dataset.go));
+  view.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>start('cat',b.dataset.cat));
+  view.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>route({name:'detail',n:+b.dataset.q}));
+  const rs=document.getElementById('reset');
+  rs.onclick=()=>{if(rs.classList.contains('armed')){state=fresh();save();toast('答案の状態にもどしました');route({name:'home'});}else{rs.classList.add('armed');rs.textContent='もう一度おすとリセットします（答案の状態にもどる）';}};
+}
+
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function start(mode,arg){
+  let list=[], title='';
+  const all=[...Array(45)].map((_,i)=>i+1);
+  if(mode==='due'){list=dueList().sort((a,b)=>S(a).box-S(b).box||S(a).due-S(b).due);title='今日の復習';
+    if(!list.length){list=shuffle(noteList()).slice(0,10);title='まちがいノート（おかわり）';}}
+  else if(mode==='note'){list=shuffle(noteList());title='まちがいノート';}
+  else if(mode==='rand'){list=shuffle(all).slice(0,10);title='ランダム10問';}
+  else if(mode==='all'){list=all;title='全45問チャレンジ';}
+  else if(mode==='cat'){const c=CATS.find(c=>c.id===arg);list=shuffle(noteList().filter(n=>n>=c.from&&n<=c.to));title=c.name;}
+  else if(mode==='retry'){list=shuffle(arg);title='まちがえた問題をもう一回';}
+  else if(mode==='one'){list=[arg];title=`問${arg}`;}
+  if(!list.length){toast('出題できる問題がありません');return;}
+  route({name:'quiz',title,list,i:0,results:[],streak:0,gained:0,bloomed:[],answered:null});
+}
+
+function qBoard(q,reveal,chosen){
+  const c=catOf(q.n), abcd=!!q.st;
+  const combo=abcd&&q.ch[0].includes('、')?q.ch[KANA.indexOf(q.ans)].split('、'):null;
+  const stOk=abcd&&reveal?q.st.map((_,i)=>{if(combo)return combo.includes(ABCD[i])?'○':'×';const m=Object.values(q.ex).map(e=>e.text).join('').match(new RegExp('【'+ABCD[i]+'＝([○×])】'));return m?m[1]:null;}):[];
+  const prev=q.prev?`<span class="prevchip">答案では ${q.prev}${q.prev===q.ans?' ○':' ✕'}</span>`:'';
+  return `<div class="board">
+    <div class="qmeta"><span class="qno">問${q.n}</span><span class="badge" style="background:var(--c-${c.id})">${c.name}</span>${prev}</div>
+    ${q.judge?`<div class="judge"><b>判決文</b>${esc(q.judge)}</div>`:''}
+    <p class="stem">${esc(q.stem)}</p>
+    ${abcd?`<ul class="stmts">${q.st.map((s,i)=>`<li><span class="k ${stOk[i]==='○'?'o':stOk[i]==='×'?'x':''}">${ABCD[i]}</span><span>${esc(s)}</span></li>`).join('')}</ul>`:''}
+  </div>
+  <div class="choices" role="group" aria-label="選択肢">${q.ch.map((t,i)=>{
+    const k=KANA[i]; let cls=abcd?'short':'';
+    if(reveal){ if(k===q.ans)cls+=' right'; else if(k===chosen)cls+=' wrong'; else cls+=' dim'; }
+    return `<button class="choice ${cls}" data-k="${k}" ${reveal?'disabled':''}><span class="kana">${k}</span><span class="t">${esc(t)}</span></button>`;}).join('')}</div>`;
+}
+function explainHTML(q,chosen){
+  return `<div class="explain">${KANA.map(k=>{const e=q.ex[k];return `<div class="ex ${e.ok?'o':'x'}"><span class="mk">${e.ok?'○':'✕'}</span><div class="body"><b class="kn">${k}</b>${chosen===k?'<span class="you">あなたの答え</span>':''}<br>${hl(e.text)}</div></div>`;}).join('')}</div>
+  <div class="trapbox"><b>ひっかけポイント</b>${hl(q.trap)}</div>`;
+}
+
+function quizView(r){
+  const n=r.list[r.i], q=Q[n], total=r.list.length;
+  view.innerHTML=`
+  <div class="qbar"><button class="back" id="quit">◀ やめる</button><div class="path" aria-hidden="true"><i style="width:${(r.i/total*100).toFixed(1)}%"></i></div><span class="qcount">${r.i+1} / ${total}</span></div>
+  <div id="qarea" style="display:flex;flex-direction:column;gap:14px">${qBoard(q,false)}</div>
+  <div id="reveal" style="display:flex;flex-direction:column;gap:14px"></div>`;
+  document.getElementById('quit').onclick=()=>r.results.length?route({name:'result',r}):route({name:'home'});
+  view.querySelectorAll('.choice').forEach(b=>b.onclick=()=>answer(r,b.dataset.k));
+  window.scrollTo({top:0});
+}
+function answer(r,k){
+  if(r.answered) return;
+  const n=r.list[r.i], q=Q[n], s=S(n), ok=k===q.ans;
+  r.answered=k;
+  let bloomed=false, gain=0;
+  if(ok){
+    const was=s.box; s.box=Math.min(3,s.box+1); s.right++; s.due=Date.now()+NEXT[s.box];
+    r.streak++; gain=10+(r.streak>=3?5:0); if(was<3&&s.box===3&&s.wrong>0){bloomed=true;gain+=30;r.bloomed.push(n);}
+    state.best=Math.max(state.best,r.streak);
+  }else{ s.box=0; s.wrong++; s.due=Date.now(); r.streak=0; }
+  s.last=k; state.answered++; state.acorns+=gain; r.gained+=gain;
+  r.results.push({n,ok,k}); save(); head();
+  document.getElementById('qarea').innerHTML=qBoard(q,true,k);
+  const mood=ok?'happy':'sad';
+  const line=bloomed?pick(LINES.bloom):ok?pick(LINES.ok):pick(LINES.ng);
+  const last=r.i+1>=r.list.length;
+  document.getElementById('reveal').innerHTML=`
+    <div class="verdict ${ok?'ok':'ng'} pop">${ok?ico.ok:ico.ng}<div>${ok?'せいかい！':'ざんねん…'}<small>${ok?`どんぐり +${gain}${r.streak>=3?`（${r.streak}れんぞく！）`:''}`:`正解は ${q.ans}。まちがいノートに入れたよ`}</small></div></div>
+    <section class="talk">${kapi(mood)}<div class="bubble"><span class="name">カピ先生</span>${esc(line)}<small>${hl(q.trap)}</small></div></section>
+    ${figHTML(q.fig)}
+    ${explainHTML(q,k)}
+    <div class="btnrow"><button class="btn" id="next">${last?'けっかを見る ▶':'つぎの問題 ▶'}</button></div>`;
+  if(ok){sOk();leaves(bloomed?60:18);} else sNg();
+  if(bloomed){setTimeout(sBloom,350);toast(`問${n}の花がさいた！ +30どんぐり`);}
+  const nb=document.getElementById('next');
+  nb.onclick=()=>{ if(last) route({name:'result',r}); else {r.i++;r.answered=null;quizView(r);} };
+  document.querySelector('.verdict').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function resultView({r}){
+  const ok=r.results.filter(x=>x.ok).length, tot=r.results.length, pct=tot?ok/tot:0;
+  const C=2*Math.PI*44, wrong=r.results.filter(x=>!x.ok).map(x=>x.n);
+  const msg=pct===1?'ぜんもん正解！島じゅうに花のかおりがするよ。':pct>=.7?'いい感じ！花畑がにぎやかになってきた。':pct>=.4?'のびてるよ！まちがえた問題は図をもう一回見ておこう。':'タネがたくさん集まったね。ここから育てていこう！';
+  view.innerHTML=`
+  <section class="talk">${kapi(pct>=.5?'happy':'')}<div class="bubble"><span class="name">カピ先生</span>${esc(msg)}<small>${esc(r.title)}のけっか</small></div></section>
+  <section class="panel">
+    <div class="score">
+      <svg class="ring" viewBox="0 0 110 110" role="img" aria-label="正解率${Math.round(pct*100)}%"><circle cx="55" cy="55" r="44" fill="none" stroke="var(--wood-pale)" stroke-width="12"/><circle cx="55" cy="55" r="44" fill="none" stroke="var(--leaf)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${(C*pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)"/><text x="55" y="62" text-anchor="middle" font-size="24">${ok}/${tot}</text></svg>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <b style="font-family:var(--f-display);font-size:20px">どんぐり +${r.gained}</b>
+        <span>${r.bloomed.length?`花がさいた問題：${r.bloomed.map(n=>'問'+n).join('、')}`:'さいた花はまだなし。あと少し！'}</span>
+        <span style="color:var(--ink-soft);font-size:13px">まちがいノートのこり ${noteList().length}問</span>
+      </div>
+    </div>
+    <div class="rlist">${r.results.map(x=>`<button class="${x.ok?'o':'x'}" data-q="${x.n}">${x.ok?'○':'✕'} 問${x.n}</button>`).join('')}</div>
+  </section>
+  <div class="btnrow">${wrong.length?`<button class="btn" id="retry">まちがえた${wrong.length}問をもう一回</button>`:''}<button class="btn sub" id="home2">島にもどる</button></div>`;
+  if(wrong.length) document.getElementById('retry').onclick=()=>start('retry',wrong);
+  document.getElementById('home2').onclick=()=>route({name:'home'});
+  view.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>route({name:'detail',n:+b.dataset.q}));
+  if(pct>=.7) leaves(40);
+  window.scrollTo({top:0});
+}
+
+function detailView({n}){
+  const q=Q[n], s=S(n);
+  view.innerHTML=`
+  <div class="qbar"><button class="back" id="bk">◀ 島にもどる</button><span style="flex:1"></span><span class="qcount">正解 ${s.right}回・まちがい ${s.wrong}回</span></div>
+  ${qBoard(q,true,null)}
+  <div class="verdict ok">${ico.ok}<div>正解は ${q.ans}<small>${['まちがいノートに入っています','あと2回正解で花がさきます','あと1回正解で花がさきます','この問題は卒業！'][Math.min(3,s.box)]}</small></div></div>
+  ${figHTML(q.fig)}
+  ${explainHTML(q,null)}
+  <div class="btnrow"><button class="btn" id="try">この問題をとく</button><button class="btn sub" id="bk2">島にもどる</button></div>`;
+  document.getElementById('bk').onclick=document.getElementById('bk2').onclick=()=>route({name:'home'});
+  document.getElementById('try').onclick=()=>start('one',n);
+  window.scrollTo({top:0});
+}
+
+document.getElementById('homeBtn').onclick=()=>route({name:'home'});
+document.getElementById('soundBtn').onclick=()=>{sound=!sound;try{localStorage.setItem(KEY+'-sound',sound?'on':'off');}catch(e){}head();if(sound)beep([[880,.1]]);};
+document.addEventListener('keydown',e=>{
+  if(current.name!=='quiz'||e.metaKey||e.ctrlKey) return;
+  const idx='1234'.indexOf(e.key);
+  if(!current.answered&&idx>=0){answer(current,KANA[idx]);}
+  else if(current.answered&&e.key==='Enter'){const b=document.getElementById('next');if(b&&document.activeElement!==b){e.preventDefault();b.click();}}
+});
+route({name:'home'});
+initCloud();
+})();
+</script>
