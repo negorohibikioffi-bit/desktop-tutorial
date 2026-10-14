@@ -214,7 +214,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
           <button type="button" data-v="line" aria-pressed="false">波線</button>
           <button type="button" data-v="edge" aria-pressed="false">フチ</button>
         </div>
-        <div class="row"><label for="wavePos">位置</label><select id="wavePos"><option value="above" selected>ジャケの上に乗せる</option><option value="below">ジャケの下に出す</option><option value="bottom">ジャケに重ねる（下）</option><option value="center">ジャケに重ねる（中央）</option><option value="top">ジャケに重ねる（上）</option></select><span></span></div>
+        <div class="row"><label for="wavePos">位置</label><select id="wavePos"><option value="both" selected>ジャケの上下に出す</option><option value="above">ジャケの上に乗せる</option><option value="below">ジャケの下に出す</option><option value="bottom">ジャケに重ねる（下）</option><option value="center">ジャケに重ねる（中央）</option><option value="top">ジャケに重ねる（上）</option></select><span></span></div>
         <div class="row"><label for="waveHeight">高さ</label><input type="range" id="waveHeight" min="20" max="200" value="100"><output for="waveHeight" id="waveHeightOut">100%</output></div>
         <div class="row"><label for="waveColor">色</label><select id="waveColor"><option value="palette" selected>ジャケの色</option><option value="white">白</option></select><span></span></div>
         <div class="row"><label for="react">音への反応</label><input type="range" id="react" min="0" max="200" value="100"><output for="react" id="reactOut">100%</output></div>
@@ -562,8 +562,13 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
   const level01 = (v, o) => Math.min(1, v * (0.4 + 0.6 * o.react));
 
   // ジャケの上に重ねる（バー／波線）
-  const waveOutside = (o) => o.wavePos === 'above' || o.wavePos === 'below';
+  const waveOutside = (o) => o.wavePos === 'above' || o.wavePos === 'below' || o.wavePos === 'both';
   function drawWaveOnCover(o, x0, y0, cs, P, S) {
+    if (o.wavePos === 'both') {   // 上は上向き、下は下向きに鏡写し
+      drawWaveOnCover({ ...o, wavePos: 'above' }, x0, y0, cs, P, S);
+      drawWaveOnCover({ ...o, wavePos: 'below' }, x0, y0, cs, P, S);
+      return;
+    }
     const out = waveOutside(o);
     const pad = cs * (out ? 0.02 : 0.08), w = cs - pad * 2, maxH = cs * 0.3 * o.waveHeight;
     const gap = S * 0.03;
@@ -763,7 +768,7 @@ button:focus-visible, .file-btn:focus-within, input:focus-visible, select:focus-
       ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = S * 0.02;
       if (o.textGlow) { ctx.shadowColor = `rgba(${state.palette[0].join(',')},0.9)`; ctx.shadowBlur = S * 0.03; }
       let ty = cy + S * o.coverSize / 2 + S * 0.06;
-      if ((o.wave === 'bars' || o.wave === 'line') && o.wavePos === 'below') ty += S * o.coverSize * 0.3 * o.waveHeight + S * 0.02;
+      if ((o.wave === 'bars' || o.wave === 'line') && (o.wavePos === 'below' || o.wavePos === 'both')) ty += S * o.coverSize * 0.3 * o.waveHeight + S * 0.02;
       const setSpacing = (f, px) => { if ('letterSpacing' in ctx) ctx.letterSpacing = (f.spacing || 0) * px + 'px'; };
       if (o.title) {
         const px = Math.round(S * 0.05 * o.textSize);
