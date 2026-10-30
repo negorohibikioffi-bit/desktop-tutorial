@@ -1,0 +1,1 @@
+{ "name": "credit-meter", "version": "0.1.0", "description": "Shows session cost, rate-limit usage (5h / 7d) and context fill in a pane and the status line", "types": "./types/index.d.ts" }

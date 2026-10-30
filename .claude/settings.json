@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "desktop-tutorial-mods": {
+      "source": { "source": "github", "repo": "negorohibikioffi-bit/desktop-tutorial" }
+    }
+  },
+  "enabledPlugins": {
+    "credit-meter@desktop-tutorial-mods": true
+  }
+}

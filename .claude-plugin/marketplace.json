@@ -1,0 +1,5 @@
+{
+  "name": "desktop-tutorial-mods",
+  "owner": { "name": "negorohibikioffi-bit" },
+  "plugins": [{ "name": "credit-meter", "source": "./plugins/credit-meter" }]
+}
