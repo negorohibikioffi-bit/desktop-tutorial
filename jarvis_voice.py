@@ -25,9 +25,9 @@ from pathlib import Path
 # ---- 声のプリセット --------------------------------------------------------
 PRESETS = {
     # 日本語：落ち着いた男性。少しゆっくり・低めで執事っぽく
-    "ja": {"voice": "ja-JP-KeitaNeural", "rate": "-8%", "pitch": "-6Hz"},
+    "ja": {"voice": "ja-JP-KeitaNeural", "rate": "-14%", "pitch": "-12Hz"},   # 低く・ゆっくり・抑えめ
     # 英語：ブリティッシュ男性。原作のジャービスに近い雰囲気
-    "en": {"voice": "en-GB-RyanNeural", "rate": "-5%", "pitch": "-4Hz"},
+    "en": {"voice": "en-GB-RyanNeural", "rate": "-10%", "pitch": "-8Hz"},
 }
 
 # ---- AIアシスタントらしい質感を出すエフェクト（ffmpeg） ----------------------
@@ -36,10 +36,10 @@ PRESETS = {
 # ・短いエコーで電子的な空間感を付与
 FFMPEG_FILTER = (
     "highpass=f=70,"
-    "equalizer=f=180:t=q:w=1.0:g=2,"
+    "equalizer=f=150:t=q:w=1.0:g=3.5,"
     "equalizer=f=3500:t=q:w=1.2:g=1.5,"
     "lowpass=f=9000,"
-    "aecho=0.8:0.6:25:0.18,"
+    "aecho=0.8:0.5:20:0.12,"
     "loudnorm=I=-16:TP=-1.5:LRA=11"
 )
 
