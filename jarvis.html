@@ -69,8 +69,24 @@ function pickVoice(){
   return vs.find(v=>/Ichiro|Otoya|Hattori|Takumi|Male|男/i.test(v.name)) || vs.find(v=>!/Haruka|Ayumi|Sayaka|Nanami|Kyoko|female|女/i.test(v.name)) || vs[0];
 }
 speechSynthesis.onvoiceschanged = ()=>{};
-function speak(text){
+let player = null;
+async function speak(text){
   say('ai', text);
+  // まずジャービスの声(サーバー側 jarvis_voice.py)を試し、だめならブラウザの音声に戻す
+  try{
+    const r = await fetch('/api/tts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text, lang:'ja'})});
+    if(!r.ok) throw new Error('tts');
+    const url = URL.createObjectURL(await r.blob());
+    if(player) player.pause();
+    player = new Audio(url);
+    player.onplay = ()=>{ target = 0.8; };
+    player.onended = ()=>{ target = 0; URL.revokeObjectURL(url); };
+    await player.play();
+    return;
+  }catch(e){ /* フォールバックへ */ }
+  speakFallback(text);
+}
+function speakFallback(text){
   if(!('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP';
   const v = pickVoice(); if(v) u.voice = v;

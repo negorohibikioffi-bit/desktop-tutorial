@@ -14,4 +14,12 @@ export ANTHROPIC_API_KEY=sk-ant-...   # Windows PowerShell: $env:ANTHROPIC_API_K
 npm start
 ```
 
+声(ジャービス風ボイス)を使う場合は、先に次も実行します。
+
+```bash
+pip install edge-tts
+```
+
+ffmpeg も必要です(Windows: `winget install ffmpeg`)。声が使えないときは、ブラウザの音声に自動で戻ります。
+
 ブラウザで http://localhost:3000 を開き、画面を一度クリックすると起動します。

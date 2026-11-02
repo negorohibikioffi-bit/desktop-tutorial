@@ -1,5 +1,7 @@
 // ジャービス用の小さなサーバー。APIキーはここ(サーバー側)だけに置く。
 import http from "node:http";
+import os from "node:os";
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +49,21 @@ http
         const text = await chat(messages || []);
         res.writeHead(200, { "content-type": "application/json" });
         return res.end(JSON.stringify({ text }));
+      }
+      if (req.method === "POST" && req.url === "/api/tts") {
+        let body = "";
+        for await (const c of req) { body += c; if (body.length > 1e5) throw new Error("too large"); }
+        const { text, lang } = JSON.parse(body);
+        if (!text || text.length > 600) throw new Error("bad text");
+        const out = path.join(os.tmpdir(), `jarvis-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
+        const py = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
+        await new Promise((ok, ng) =>
+          execFile(py, [path.join(here, "jarvis_voice.py"), "--lang", lang === "en" ? "en" : "ja", "-o", out, text],
+            { timeout: 30000 }, (e, _o, se) => (e ? ng(new Error(se || e.message)) : ok())));
+        const buf = fs.readFileSync(out);
+        fs.unlink(out, () => {});
+        res.writeHead(200, { "content-type": "audio/mpeg" });
+        return res.end(buf);
       }
       res.writeHead(404).end("not found");
     } catch (e) {
