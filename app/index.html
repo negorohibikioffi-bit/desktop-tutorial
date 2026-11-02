@@ -83,7 +83,7 @@ const SCHEMA={
   ['物件情報',[['name','物件名',T],['room','号室',T],['vendor','業者目線（円）',N],['prop','プロップ評価額（円）',N],['base','基準収支（円/月）',N],['date','築年月日',DT]]],
   ['条件①　賃料・費用',[['mode','形態',SEL,['サブリース','集金代行']],['rent','賃料（円/月）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他費用',N]]],
   ['条件②　融資',[['rate','金利（％）',PC],['years','融資年数',N]]],
-  ['楽天評価シートの出力項目',[['addr','住居表示',T],['station','最寄駅/徒歩（路線 / 駅 徒歩○分）',T],['sqm','専有面積（㎡）',N],['floorsTotal','総階数',N],['floor','所在階',N],['layout','間取り',T],['outCol','出力する販売価格',SEL,['①','②','③']],['priceOv','販売希望価格を手入力（万円）',N]]],
+  ['楽天評価シートの出力項目',[['addr','住居表示',T],['station','最寄駅/徒歩（路線 / 駅 徒歩○分）',T],['station2','最寄駅/徒歩（2つ目）',T],['sqm','専有面積（㎡）',N],['floorsTotal','総階数',N],['floor','所在階',N],['layout','間取り',T],['outCol','出力する販売価格',SEL,['①','②','③']],['priceOv','販売希望価格を手入力（万円）',N]]],
   ['マイソク（販売図面）の項目',[['units','総戸数',N],['structure','構造',T],['land','土地権利',T],['mgmtCo','建物管理会社',T],['mgmtType','管理形態',T],['mgmtMethod','管理方式',T],['guarantee','保証家賃（家賃表示＝保証家賃÷0.9）',N],['remarks','備考',T],['tradeType','取引態様',SEL,['（未選択）','売主','媒介','代理']],['showInternal','オーナー収支・幅を図面に',SEL,['載せない','載せる']]]]],
  ion:[
   ['物件情報',[['name','物件名',T],['region','地域',SEL,Object.keys(AREAS)],['area','エリア',SEL,p=>AREAS[p.region]||[]],['walk','徒歩',SEL,['5分以内','6分以上']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['cost','仕入れ価格（円）',N]]],
@@ -95,7 +95,7 @@ const SCHEMA={
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmtFee','管理手数料',N],['mgmt','管理費',N],['repair','修繕費',N]]],
   ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]]]
 };
-const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',land:'所有権',mgmtCo:'',mgmtType:'全部委託',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',sqm:'',floorsTotal:'',floor:'',layout:'',outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
+const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',land:'所有権',mgmtCo:'',mgmtType:'全部委託',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',station2:'',sqm:'',floorsTotal:'',floor:'',layout:'',outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
  ion:{name:'新規物件',region:'東京',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02376,r2:0.0228,r3:0.02532,r4:0.02532,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
  sbj:{name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
 
@@ -115,7 +115,7 @@ function fieldHTML(p,f){const[k,l,t,o]=f;const v=p[k]??'';
   return `<label><span>${l}</span><input type="number" inputmode="decimal" step="any" data-k="${k}" value="${esc(v)}"></label>`}
 function renderProp(){const p=getP();const g=SCHEMA[S.tool];
   const cards=g.map(([title,fs],i)=>`<div class="card"><h2>${title}</h2>${fs.map(f=>fieldHTML(p,f)).join('')}</div>`).join('');
-  document.getElementById('main').innerHTML=`<div class="card" id="mscard" style="margin-bottom:16px"><h2>マイソクから自動入力</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('msf').click()">マイソクを選択（PDF・写真）</button>${S.tool==='sim'?'<button onclick="mkOpen()">マイソクを作成</button>':''}<input type="file" id="msf" accept="application/pdf,image/*" hidden><span id="mss" class="note" style="margin:0"></span></div><div id="msr"></div></div><div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
+  document.getElementById('main').innerHTML=`<div class="card" id="mscard" style="margin-bottom:16px"><h2>マイソクから自動入力</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('msf').click()">マイソクを選択（PDF・写真）</button>${S.tool==='sim'?'<button onclick="mkOpen()">マイソクを作成</button>':''}<input type="file" id="msf" accept="application/pdf,image/*" hidden><button onclick="msTextToggle()">ネットの情報を貼り付け</button><span id="mss" class="note" style="margin:0"></span></div><div id="mst" hidden style="margin-top:10px"><textarea id="msx" placeholder="不動産サイトの物件情報（物件名、所在地、駅、築年月、面積など）をコピーして、ここに貼り付けてください" style="height:140px"></textarea><div class="bar"><button class="pri" onclick="msReadText()">この文章から読み取る</button></div></div><div id="msr"></div></div><div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
   document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];}renderProp();head();save();} }));
   document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?(e.dataset.pct?Number(e.value)/100:Number(e.value)):e.value;
     if(e.dataset.k==='name'){const b=document.querySelector(`#tabs [data-id="${p.id}"]`);if(b)b.textContent=p.name||'(無題)'}upd();save()})});
@@ -187,9 +187,10 @@ function imp(){try{const l=JSON.parse(di.value);if(!l.sim||!l.ion||!l.sbj)throw 
 function reset(){try{localStorage.removeItem(KEY);localStorage.removeItem(OLD)}catch(e){}location.reload()}
 
 /* ---- マイソク読み取り（1枚ずつ・確認画面つき） ---- */
-const MS_PROMPT=`添付は不動産の販売図面（マイソク）です。次のJSONだけを返してください。読み取れない項目はnull。推測で埋めないこと。
-{"name":"物件名（号室があれば含める）","address":"所在地","station":"最寄駅","walkMin":徒歩分数の整数,"sqm":専有面積㎡の数値,"builtYM":"築年月をYYYY-MMで（和暦は西暦に直す）","units":総戸数の整数,"price":販売価格を円の整数,"rent":月額賃料を円の整数,"mgmt":月額管理費を円の整数,"repair":月額修繕積立金を円の整数,"line":"沿線名","floorsTotal":総階数の整数,"floor":所在階の整数,"layout":"間取り（例 1K）","notes":"読み取りに自信がない点や、複数の金額で迷った点（なければ空文字）"}
-金額は円単位の整数（万円表記は直す）。賃料・管理費・修繕積立金は月額。`;
+const msPrompt=intro=>`${intro}次のJSONだけを返してください。読み取れない項目はnull。推測で埋めないこと。
+{"name":"物件名（号室があれば含める）","address":"所在地","station":"最寄駅","walkMin":徒歩分数の整数,"line2":"2つ目の沿線名","station2":"2つ目の最寄駅","walkMin2":2つ目の徒歩分数の整数,"sqm":専有面積㎡の数値,"builtYM":"築年月をYYYY-MMで（和暦は西暦に直す）","units":総戸数の整数,"price":販売価格を円の整数,"rent":月額賃料を円の整数,"mgmt":月額管理費を円の整数,"repair":月額修繕積立金を円の整数,"line":"沿線名","floorsTotal":総階数の整数,"floor":所在階の整数,"layout":"間取り（例 1K）","notes":"読み取りに自信がない点や、複数の金額で迷った点（なければ空文字）"}
+最寄駅が2つ以上ある場合は、徒歩の近い順に2つまで入れる。金額は円単位の整数（万円表記は直す）。賃料・管理費・修繕積立金は月額。`;
+const MS_PROMPT=msPrompt('添付は不動産の販売図面（マイソク）です。');
 const REGION_BY_PREF=[[/^東京都/,'東京'],[/^大阪府/,'大阪'],[/^(京都府|愛知県)/,'京都・名古屋'],[/^(兵庫県|福岡県)/,'神戸・福岡']];
 async function msBlobs(file,max){
   const cv=document.createElement('canvas'),out=[];
@@ -214,6 +215,16 @@ async function msRead(file){
     const E=await sample.json(MS_PROMPT,{images:blobs,modelTier:'default'});
     st.textContent='読み取りました。内容を確認してください';msShow(E)
   }catch(e){st.textContent=e&&e.code==='nopdf'?'PDFを開けませんでした。写真かスクショで試してください':e&&e.code==='not_granted'?'許可されなかったため読み取りません':e&&e.code==='rate_limited'?'短時間に多く使いました。少し待ってください':'読み取れませんでした。画像を変えて試してください'}}
+function msTextToggle(){const e=document.getElementById('mst');e.hidden=!e.hidden;if(!e.hidden)document.getElementById('msx').focus()}
+async function msReadText(){
+  const st=document.getElementById('mss'),res=document.getElementById('msr'),txt=document.getElementById('msx').value.trim();res.innerHTML='';
+  if(!txt){st.textContent='文章を貼り付けてください';return}
+  const sample=typeof claude!=='undefined'?await claude.use('sample').catch(()=>null):null;
+  if(!sample){st.textContent='この機能は公開版のページでのみ使えます';return}
+  try{st.textContent='読み取り中…（初回は許可の確認が出ます）';
+    const E=await sample.json(msPrompt('以下は不動産ポータルなどに載っている物件情報の文章です。文章にない項目はnullにしてください。')+'\n\n---\n'+txt.slice(0,30000),{modelTier:'default'});
+    st.textContent='読み取りました。内容を確認してください';msShow(E)
+  }catch(e){st.textContent=e&&e.code==='not_granted'?'許可されなかったため読み取りません':e&&e.code==='rate_limited'?'短時間に多く使いました。少し待ってください':'読み取れませんでした。文章を変えて試してください'}}
 function msProps(E){
   const t=S.tool,num=v=>v==null||v===''||isNaN(Number(v))?'':Number(v);
   const rows=[['name','物件名',E.name||'',T]];
@@ -221,9 +232,8 @@ function msProps(E){
   const ym=/^\d{4}-\d{2}$/.test(E.builtYM||'')?E.builtYM+'-01':'';rows.push([t==='sim'?'date':'built','築年月日（日は1日で仮入力）',ym,DT]);
   rows.push([t==='sim'?'vendor':t==='sbj'?'maisoku':'cost',t==='sim'?'業者目線（円）':t==='sbj'?'マイソク価格':'仕入れ価格',num(E.price),N]);
   rows.push([t==='sim'?'rent':'shu',t==='sim'?'賃料':'集金代行（実賃）',num(E.rent),N],['mgmt','管理費',num(E.mgmt),N],['repair','修繕費',num(E.repair),N]);
-  if(t==='sim'){const st=E.station?String(E.station).replace(/駅$/,'')+'駅':'';const w=num(E.walkMin);
-    const stn=[E.line,st&&(st+(w!==''?' 徒歩'+w+'分':''))].filter(Boolean).join(' / ');
-    rows.push(['units','総戸数',num(E.units),N],['addr','住居表示',E.address||'',T],['station','最寄駅/徒歩',stn,T],['sqm','専有面積（㎡）',num(E.sqm),N],['floorsTotal','総階数',num(E.floorsTotal),N],['floor','所在階',num(E.floor),N],['layout','間取り',E.layout||'',T])}
+  if(t==='sim'){const stn=(line,station,walk)=>{const st=station?String(station).replace(/駅$/,'')+'駅':'';const w=num(walk);return [line,st&&(st+(w!==''?' 徒歩'+w+'分':''))].filter(Boolean).join(' / ')};
+    rows.push(['units','総戸数',num(E.units),N],['addr','住居表示',E.address||'',T],['station','最寄駅/徒歩',stn(E.line,E.station,E.walkMin),T],['station2','最寄駅/徒歩（2つ目）',stn(E.line2,E.station2,E.walkMin2),T],['sqm','専有面積（㎡）',num(E.sqm),N],['floorsTotal','総階数',num(E.floorsTotal),N],['floor','所在階',num(E.floor),N],['layout','間取り',E.layout||'',T])}
   if(t==='ion'){const w=num(E.walkMin);if(w!=='')rows.push(['walk','徒歩',w<=5?'5分以内':'6分以上',SEL]);
     const r=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1];if(r)rows.push(['region','地域',r,SEL])}
   return rows}
@@ -244,7 +254,7 @@ function rkRow(p){const r=AxiaCalc.calc(p),idx={'①':0,'②':1,'③':2}[p.outCo
   const ov=p.priceOv!==''&&p.priceOv!=null&&!isNaN(Number(p.priceOv));const price=ov?Number(p.priceOv):r.cols[idx].price;
   const nm=(p.name||'')+((p.room&&!String(p.name||'').includes(p.room))?' '+p.room+'号室':'');
   const n=v=>v===''||v==null||isNaN(Number(v))?'':Number(v);
-  return {C:nm,D:p.addr||'',E:p.station||'',F:price>0?price:'',G:n(p.sqm),H:n(p.floorsTotal),I:n(p.floor),J:p.layout||'',K:p.date||''}}
+  return {C:nm,D:p.addr||'',E:[p.station,p.station2].filter(x=>x&&String(x).trim()).join('、'),F:price>0?price:'',G:n(p.sqm),H:n(p.floorsTotal),I:n(p.floor),J:p.layout||'',K:p.date||''}}
 const rkMissing=row=>RK_COLS.filter(([k])=>row[k]===''||row[k]==null).map(c=>c[1]);
 function rkNote(p){const row=rkRow(p),m=rkMissing(row);
   return `<div class="note">評価シート：販売希望価格 ${row.F===''?'—':F(row.F)+'万円'}（${p.priceOv!==''&&p.priceOv!=null?'手入力':(p.outCol||'①')}）${m.length?'　<span class="err">未入力：'+m.join('、')+'</span>':'　全項目そろっています'}</div>`}
@@ -311,7 +321,7 @@ function mkData(p){
   const rent=g!=null?g:(Number(p.rent)||'');
   const rep=p.repair===0||p.repair==='0'?'管理費に含む':has(p.repair)?F(p.repair)+'円':TBD;
   const trade=p.tradeType&&p.tradeType!=='（未選択）'?p.tradeType:'';
-  return {price:row.F===''?'':F(row.F),name:row.C,addr:p.addr||'',stations:String(p.station||'').split(/\s*[;；\n]\s*/).filter(Boolean).slice(0,2),
+  return {price:row.F===''?'':F(row.F),name:row.C,addr:p.addr||'',stations:[p.station,p.station2].filter(x=>x&&String(x).trim()).slice(0,2),
     rows:[['所在',[['','所在',p.addr||TBD,1]]],
      ['建物',[['専有面積','',has(p.sqm)?p.sqm+'㎡':TBD],['間取','',p.layout||TBD],['構造','',p.structure||TBD],['階数','',has(p.floorsTotal)?'地上'+p.floorsTotal+'階建て':TBD],['所在階','',has(p.floor)?p.floor+'階':TBD],['建築年月','',dt?dt[0]+'年'+Number(dt[1])+'月':TBD],['総戸数','',has(p.units)?p.units+'戸':TBD],['土地権利','',p.land||TBD]]],
      ['建物管理',[['建物管理会社','',p.mgmtCo||TBD],['管理形態','',p.mgmtType||TBD],['管理方式','',p.mgmtMethod||TBD],['管理費','',has(p.mgmt)?F(p.mgmt)+'円':TBD],['修繕積立金','',rep]]],
