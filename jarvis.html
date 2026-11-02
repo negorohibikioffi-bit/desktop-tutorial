@@ -80,11 +80,20 @@ function speak(text){
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
 
-// ---- 返答ロジック（ここを後でAI/バックエンド接続に差し替える） ----
+// ---- 返答ロジック: サーバー経由でClaudeに接続 ----
+const history = [];
 async function reply(q){
-  if(/契約書|重説|重要事項/.test(q)) return '契約書や重説のPDFをお渡しください。買主目線で手付、契約不適合責任、違約金、法令上の制限などを条文ごとにチェックします。';
-  if(/こんにちは|おはよう|ジャービス/.test(q)) return 'はい、響様。ご用件をどうぞ。';
-  return 'かしこまりました。現在は簡易モードで稼働しております。AIとの接続を済ませれば、より詳しくお答えできます。';
+  history.push({role:'user', content:q});
+  try{
+    const r = await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:history})});
+    const j = await r.json();
+    if(!r.ok || !j.text) throw new Error(j.error || 'empty');
+    history.push({role:'assistant', content:j.text});
+    return j.text;
+  }catch(e){
+    history.pop();
+    return 'AIとの接続に失敗しました。サーバーが起動しているか、APIキーの設定をご確認ください。';
+  }
 }
 async function ask(q){
   say('me', q); target = 0.5;
