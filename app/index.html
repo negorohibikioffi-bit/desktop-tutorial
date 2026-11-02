@@ -25,6 +25,7 @@ main{padding-block:16px;max-width:980px;margin:0 auto}
 .card h2.sub{margin-top:14px}
 label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
 label span{color:var(--mut);font-size:13px}
+input[type=checkbox]{width:auto;max-width:none;accent-color:var(--pri)}
 input,select{width:150px;max-width:55%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);text-align:right}
 select{text-align:left}input.wide{width:60%;max-width:none;text-align:left}
 textarea{width:100%;height:120px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;font:12px monospace}
@@ -69,22 +70,22 @@ const cls=n=>n<0?'neg':'';
 const pill=(ok,a,b)=>`<span class="pill ${ok?'':'ng'}">${ok?a:b}</span>`;
 
 /* ---- 入力項目の定義 ---- */
-const N='num',T='text',DT='date',SEL='sel';
+const N='num',T='text',DT='date',SEL='sel',PC='pct';
 const AREAS={'東京':['青エリア','赤エリア','黄エリア','緑エリア'],'大阪':['青エリア','赤エリア'],'神戸・福岡':['赤エリア'],'京都・名古屋':['赤エリア']};
 const SCHEMA={
  sim:[
   ['物件情報',[['name','物件名',T],['room','号室',T],['vendor','業者目線（円）',N],['prop','プロップ評価額（円）',N],['base','基準収支（円/月）',N],['date','築年月日',DT]]],
   ['条件①　賃料・費用',[['mode','形態',SEL,['サブリース','集金代行']],['rent','賃料（円/月）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他費用',N]]],
-  ['条件②　融資',[['rate','金利（0.02748＝2.748%）',N],['years','融資年数',N]]]],
+  ['条件②　融資',[['rate','金利（％）',PC],['years','融資年数',N]]]],
  ion:[
   ['物件情報',[['name','物件名',T],['region','地域',SEL,Object.keys(AREAS)],['area','エリア',SEL,p=>AREAS[p.region]||[]],['walk','徒歩',SEL,['5分以内','6分以上']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['cost','仕入れ価格（円）',N]]],
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他',N]]],
-  ['融資条件',[['price','販売価格（空欄で自動計算）',N],['deposit','手付金',N],['feeRate','諸費用率（0.05＝5%）',N],['y1','融資年数①',N],['y2','融資年数②',N],['r1','金利 ①年',N],['r2','金利 ①年＋諸',N],['r3','金利 ②年',N],['r4','金利 ②年＋諸',N]]],
+  ['融資条件',[['price','販売価格（空欄で自動計算）',N],['deposit','手付金',N],['feeRate','諸費用率（％）',PC],['y1','融資年数①',N],['y2','融資年数②',N],['r1','金利 ①年（％）',PC],['r2','金利 ①年＋諸（％）',PC],['r3','金利 ②年（％）',PC],['r4','金利 ②年＋諸（％）',PC]]],
   ['手入力で上書き（空欄なら自動）',[['yieldOv','想定利回り（％）',N],['costOv','諸費用（円）',N],['agentOv','代行手数料（円）',N],['rentBasis','賃料の基準',SEL,['標準','中央値換算']],['feeMode','代行手数料の方式',SEL,['標準','賃料×10%']]]]],
  sbj:[
   ['物件情報',[['name','物件名',T],['region','エリア',SEL,['東京','東京以外']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['maisoku','マイソク価格（業者目線）',N],['tas','TAS',N]]],
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmtFee','管理手数料',N],['mgmt','管理費',N],['repair','修繕費',N]]],
-  ['融資条件',[['rate','金利（0.0235＝2.35%）',N],['yield','基準利回り（0.04＝4%）',N],['offset','仕入れ上限＝評価−（円）',N]]]]
+  ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]]]
 };
 const NEWP={sim:{name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
  ion:{name:'新規物件',region:'東京',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02376,r2:0.0228,r3:0.02532,r4:0.02532,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
@@ -101,13 +102,14 @@ function render(){head();(cur()==='list'||!getP())?renderList():renderProp();sav
 function fieldHTML(p,f){const[k,l,t,o]=f;const v=p[k]??'';
   if(t===SEL){const opts=typeof o==='function'?o(p):o;return `<label><span>${l}</span><select data-k="${k}">${opts.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('')}</select></label>`}
   if(t===T)return `<label><span>${l}</span><input class="wide" data-k="${k}" value="${esc(v)}"></label>`;
+  if(t===PC)return `<label><span>${l}</span><input type="number" inputmode="decimal" step="any" data-k="${k}" data-pct="1" value="${v===''?'':+(Number(v)*100).toFixed(8)}"></label>`;
   if(t===DT)return `<label><span>${l}</span><input type="date" data-k="${k}" value="${esc(v)}"></label>`;
   return `<label><span>${l}</span><input type="number" inputmode="decimal" step="any" data-k="${k}" value="${esc(v)}"></label>`}
 function renderProp(){const p=getP();const g=SCHEMA[S.tool];
   const cards=g.map(([title,fs],i)=>`<div class="card"><h2>${title}</h2>${fs.map(f=>fieldHTML(p,f)).join('')}</div>`).join('');
   document.getElementById('main').innerHTML=`<div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
   document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];}renderProp();head();save();} }));
-  document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?Number(e.value):e.value;
+  document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?(e.dataset.pct?Number(e.value)/100:Number(e.value)):e.value;
     if(e.dataset.k==='name'){const b=document.querySelector(`#tabs [data-id="${p.id}"]`);if(b)b.textContent=p.name||'(無題)'}upd();save()})});
   upd()}
 function upd(){const p=getP();if(!p)return;document.getElementById('res').innerHTML=RES[S.tool](p)}
@@ -147,16 +149,23 @@ const RES={
 };
 
 function renderList(){let h='';
- if(S.tool==='sim'){h=`<table><thead><tr><th>物件名</th><th>金利</th><th>プロップ額</th><th>融資①</th><th>融資②</th><th>①収支</th><th>②収支</th><th>③収支</th></tr></thead><tbody>`+
-  L().map(p=>{const r=AxiaCalc.calc(p),pr=Number(p.prop)||0;return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td class="nm">${esc(p.name)}</td><td>${D((Number(p.rate)||0)*100,3)}%</td><td>${pr?F(pr):''}</td><td>${pr?F(pr*1.25):''}</td><td>${pr?F(pr*1.5):''}</td>${r.cols.map(c=>`<td class="${cls(c.real)}">${F(c.real)}</td>`).join('')}</tr>`}).join('')+
+ if(S.tool==='sim'){h=`<table><thead><tr><th><input type="checkbox" id="ckall" aria-label="すべて選択"></th><th>物件名</th><th>金利</th><th>プロップ額</th><th>融資①</th><th>融資②</th><th>①収支</th><th>②収支</th><th>③収支</th></tr></thead><tbody>`+
+  L().map(p=>{const r=AxiaCalc.calc(p),pr=Number(p.prop)||0;return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="ck" value="${p.id}" aria-label="選択"></td><td class="nm">${esc(p.name)}</td><td>${D((Number(p.rate)||0)*100,3)}%</td><td>${pr?F(pr):''}</td><td>${pr?F(pr*1.25):''}</td><td>${pr?F(pr*1.5):''}</td>${r.cols.map(c=>`<td class="${cls(c.real)}">${F(c.real)}</td>`).join('')}</tr>`}).join('')+
   `</tbody></table><div class="note">※融資①＝プロップ額×1.25倍、融資②＝プロップ額×1.5倍。収支は実質収支。行をタップで物件へ。</div>`}
- else if(S.tool==='ion'){h=`<table><thead><tr><th>物件名</th><th>エリア</th><th>融資条件</th><th>利回り</th><th>販売価格</th><th>35年</th><th>35年＋諸</th><th>45年</th><th>45年＋諸</th></tr></thead><tbody>`+
-  L().map(p=>{const o=AxiaCalc2.ion(p);const pl=o.plans||[];return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td class="nm">${esc(p.name)}</td><td>${esc(p.region)}${esc((p.area||'').replace('エリア',''))}</td><td>${pill(o.ok,'○','×')}</td><td>${o.y&&o.y.rate?D(o.y.pct,2)+'%':'—'}</td><td>${o.price==null?'—':F(o.price)}</td>${[0,1,2,3].map(i=>`<td class="${pl[i]?cls(pl[i].income):''}">${pl[i]?F(pl[i].income):''}</td>`).join('')}</tr>`}).join('')+`</tbody></table><div class="note">収支は月額（円）。今日の日付で築年数を計算します。</div>`}
- else{h=`<table><thead><tr><th>物件名</th><th>平米</th><th>築</th><th>戸数</th><th>利回り</th><th>マイソク</th><th>仕入れ希望額</th><th>融資</th><th>家賃</th><th>管積</th><th>管理手数料</th><th>返済額</th><th>エンド収支</th><th>表示価格との差</th></tr></thead><tbody>`+
+ else if(S.tool==='ion'){h=`<table><thead><tr><th><input type="checkbox" id="ckall" aria-label="すべて選択"></th><th>物件名</th><th>エリア</th><th>融資条件</th><th>利回り</th><th>販売価格</th><th>35年</th><th>35年＋諸</th><th>45年</th><th>45年＋諸</th></tr></thead><tbody>`+
+  L().map(p=>{const o=AxiaCalc2.ion(p);const pl=o.plans||[];return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="ck" value="${p.id}" aria-label="選択"></td><td class="nm">${esc(p.name)}</td><td>${esc(p.region)}${esc((p.area||'').replace('エリア',''))}</td><td>${pill(o.ok,'○','×')}</td><td>${o.y&&o.y.rate?D(o.y.pct,2)+'%':'—'}</td><td>${o.price==null?'—':F(o.price)}</td>${[0,1,2,3].map(i=>`<td class="${pl[i]?cls(pl[i].income):''}">${pl[i]?F(pl[i].income):''}</td>`).join('')}</tr>`}).join('')+`</tbody></table><div class="note">収支は月額（円）。今日の日付で築年数を計算します。</div>`}
+ else{h=`<table><thead><tr><th><input type="checkbox" id="ckall" aria-label="すべて選択"></th><th>物件名</th><th>平米</th><th>築</th><th>戸数</th><th>利回り</th><th>マイソク</th><th>仕入れ希望額</th><th>融資</th><th>家賃</th><th>管積</th><th>管理手数料</th><th>返済額</th><th>エンド収支</th><th>表示価格との差</th></tr></thead><tbody>`+
   L().map(p=>{const r=AxiaCalc2.sbj(p);const H=r.limit,rent=Number(p.shu||p.sub)||0;const rep=H>0?Math.round(AxiaCalc2.pmt(0.01975/12,420,H)):0;
-   return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td class="nm">${esc(p.name)}</td><td>${p.sqm}</td><td>${p.built?D(r.days/365,1)+'年':''}</td><td>${p.units}</td><td>${r.yieldSale?PCT(r.yieldSale):''}</td><td>${F(p.maisoku)}</td><td>${F(H)}</td><td>${r.ok?'100%':'90%'}</td><td>${F(rent)}</td><td>${F(r.kanseki)}</td><td>${F(p.mgmtFee)}</td><td>${F(rep)}</td><td class="${cls(rent-r.kanseki-Number(p.mgmtFee||0)-rep)}">${F(rent-r.kanseki-(Number(p.mgmtFee)||0)-rep)}</td><td class="${cls(H-(Number(p.maisoku)||0))}">${F(H-(Number(p.maisoku)||0))}</td></tr>`}).join('')+
+   return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="ck" value="${p.id}" aria-label="選択"></td><td class="nm">${esc(p.name)}</td><td>${p.sqm}</td><td>${p.built?D(r.days/365,1)+'年':''}</td><td>${p.units}</td><td>${r.yieldSale?PCT(r.yieldSale):''}</td><td>${F(p.maisoku)}</td><td>${F(H)}</td><td>${r.ok?'100%':'90%'}</td><td>${F(rent)}</td><td>${F(r.kanseki)}</td><td>${F(p.mgmtFee)}</td><td>${F(rep)}</td><td class="${cls(rent-r.kanseki-Number(p.mgmtFee||0)-rep)}">${F(rent-r.kanseki-(Number(p.mgmtFee)||0)-rep)}</td><td class="${cls(H-(Number(p.maisoku)||0))}">${F(H-(Number(p.maisoku)||0))}</td></tr>`}).join('')+
   `</tbody></table><div class="note">※返済額は金利1.975%・35年(420回)。仕入れ希望額は各物件の「仕入れ上限目安」を使用。管理手数料0の物件はサブリース。</div>`}
- document.getElementById('main').innerHTML=`<div class="card sc"><h2>${TOOLS[S.tool]}　物件一覧</h2>${h}</div>`}
+ document.getElementById('main').innerHTML=`<div id="cfm"></div><div class="card sc"><h2>${TOOLS[S.tool]}　物件一覧</h2><div class="bar" style="margin:0 0 8px"><button id="bd" onclick="bulkAsk()" disabled>選択した物件を削除</button><span class="note" style="margin:0">チェックを入れて削除します</span></div>${h}</div>`;
+ const all=document.getElementById('ckall');
+ all.onchange=()=>{document.querySelectorAll('.ck').forEach(c=>c.checked=all.checked);selUpd()};
+ document.querySelectorAll('.ck').forEach(c=>c.onchange=selUpd)}
+const selIds=()=>[...document.querySelectorAll('.ck:checked')].map(c=>c.value);
+function selUpd(){const n=selIds().length,b=document.getElementById('bd');b.disabled=!n;b.textContent=n?`選択した${n}件を削除`:'選択した物件を削除'}
+function bulkAsk(){const ids=selIds();if(!ids.length)return;document.getElementById('cfm').innerHTML=`<div class="card" style="margin-bottom:16px"><b>${ids.length}件の物件を削除しますか？</b><div class="note">この操作は元に戻せません。</div><div class="bar"><button class="pri" onclick="bulkDel()">削除する</button><button onclick="document.getElementById('cfm').innerHTML=''">やめる</button></div></div>`}
+function bulkDel(){const ids=selIds();S.lists[S.tool]=L().filter(p=>!ids.includes(p.id));save();render()}
 
 /* ---- 追加・複製・削除・データ ---- */
 function addNew(){const id='n'+Date.now();L().push({...NEWP[S.tool],id});go(id)}
