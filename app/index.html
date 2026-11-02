@@ -355,7 +355,7 @@ function mkHTML(p,ph){const d=mkData(p),c=mkCo(),W='font-family:\'Hiragino Sans\
      <div style="position:absolute;left:560px;top:8px;font-size:13px;line-height:19px">${esc(c.zip)}<br>${esc(c.addr)}<br>ＴＥＬ：${esc(c.tel)}　ＦＡＸ：${esc(c.fax)}</div>
      <div style="position:absolute;right:26px;top:4px;width:58px;height:58px;background:url(${window.AXIA_LOGO}) center/contain no-repeat"></div></div></div>`}
 function mkOpen(){const p=getP();if(!p)return;MK.pid=p.id;const c=mkCo();
-  document.getElementById('main').innerHTML=`<div class="bar" style="margin:0 0 12px"><button onclick="render()">← 物件に戻る</button><button class="pri" onclick="mkExport('png')">PNGで保存</button><button class="pri" onclick="mkExport('pdf')">PDFで保存</button><span id="mkm" class="note" style="margin:0"></span></div>
+  document.getElementById('main').innerHTML=`<div class="bar" style="margin:0 0 12px"><button onclick="render()">← 物件に戻る</button><button class="pri" onclick="mkExport('png')">PNGで保存</button><button class="pri" onclick="mkExport('pdf')">PDFで保存</button><button class="pri" onclick="mkExport('xlsx')">Excelで保存</button><span id="mkm" class="note" style="margin:0"></span></div>
   <div class="card" style="padding:8px"><div id="mkw" style="width:100%;overflow:hidden"><div id="mkp" style="transform-origin:0 0"></div></div></div>
   <div class="grid" style="margin-top:16px">
    <div class="card"><h2>画像（クリックして選び、貼り付けも可）</h2>${MK_SLOTS.map(([k,l])=>`<div class="bar" id="mks_${k}" style="margin:6px 0;padding:6px;border:1px solid var(--line);border-radius:8px"><b style="min-width:5em">${l}</b><span class="note" id="mkst_${k}" style="margin:0;flex:1"></span><button onclick="mkPick('${k}')">選択</button><button onclick="mkDel('${k}')">削除</button><input type="file" id="mkf_${k}" accept="image/*" hidden></div>`).join('')}
@@ -383,17 +383,56 @@ async function mkSet(slot,file){const p=L().find(x=>x.id===MK.pid);if(!p)return;
     if(SYNC.col)SYNC.col.doc('img_'+key).set({data:u}).catch(()=>{m.textContent='画像の同期に失敗しました（この画面では使えます）'})}
   catch(e){m.textContent='画像を読み込めませんでした'}}
 function mkDel(slot){const key=MK.pid+'_'+slot;delete IMG[key];if(SYNC.col)SYNC.col.doc('img_'+key).delete().catch(()=>{});mkRefresh()}
+const imgDims=u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.naturalWidth,i.naturalHeight]);i.onerror=()=>r([1,1]);i.src=u});
+async function mkExcel(p){
+  const d=mkData(p),c=mkCo(),wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet((p.name||'マイソク').replace(/[\\/?*\[\]:]/g,'').slice(0,28)||'マイソク',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:1,margins:{left:.2,right:.2,top:.2,bottom:.2,header:0,footer:0}}});
+  ws.getColumn(1).width=3.3;for(let k=2;k<=35;k++)ws.getColumn(k).width=3.7;ws.getColumn(36).width=3.3;for(let r=1;r<=36;r++)ws.getRow(r).height=16.5;
+  const FN='游ゴシック',BLK={argb:'FF000000'},WHT={argb:'FFFFFFFF'};
+  const cell=(r,k)=>ws.getCell(r,k),fill=(r1,k1,r2,k2,col)=>{for(let r=r1;r<=r2;r++)for(let k=k1;k<=k2;k++)cell(r,k).fill={type:'pattern',pattern:'solid',fgColor:col}};
+  const put=(r1,k1,r2,k2,v,o={})=>{if(r1!==r2||k1!==k2)ws.mergeCells(r1,k1,r2,k2);const x=cell(r1,k1);x.value=v;x.font={name:FN,size:o.size||11,bold:!!o.bold,color:o.color};x.alignment={vertical:o.v||'middle',horizontal:o.h,wrapText:true,textRotation:o.rot};if(o.fmt)x.numFmt=o.fmt;if(o.bg)fill(r1,k1,r2,k2,o.bg)};
+  const bd=(r1,k1,r2,k2,side,st)=>{for(let r=r1;r<=r2;r++)for(let k=k1;k<=k2;k++){const b=Object.assign({},cell(r,k).border||{});if(side==='t'&&r===r1||side==='b'&&r===r2||side==='l'&&k===k1||side==='r'&&k===k2||side==='box'&&(r===r1||r===r2||k===k1||k===k2)){if(side==='box'){if(r===r1)b.top={style:st};if(r===r2)b.bottom={style:st};if(k===k1)b.left={style:st};if(k===k2)b.right={style:st}}else b[{t:'top',b:'bottom',l:'left',r:'right'}[side]]={style:st}}cell(r,k).border=b}};
+  // ヘッダー帯
+  fill(2,2,4,35,BLK);
+  put(2,2,4,2,'価\n格',{bold:true,color:WHT,h:'center',bg:BLK,size:10});
+  const pr=d.price===''?'':Number(String(d.price).replace(/,/g,''));
+  put(2,3,4,7,pr,{bold:true,size:22,color:WHT,h:'left',bg:BLK,fmt:'#,##0'});put(3,8,4,9,'万円',{color:WHT,v:'bottom',bg:BLK,size:10});
+  put(2,12,4,21,d.stations.join('\n'),{color:WHT,bg:BLK,size:11});
+  put(2,22,4,35,d.name,{bold:true,size:d.name.length>16?16:20,color:WHT,h:'right',bg:BLK});
+  // 右の表
+  let r=6;const X=25,L1=26,L2=29,CO=30,V1=31,V2=35;
+  d.rows.forEach(([lab,rs],si)=>{const isLast=lab==='備考',n=lab==='所在'?2:lab==='建物'?8:lab==='建物管理'?5:(31-r);const r0=r;
+    put(r0,X,r0+n-1,X,lab,{bold:true,color:WHT,bg:BLK,h:'center',rot:'vertical',size:10});
+    if(lab==='所在')put(r0,L1,r0+1,V2,rs[0][2],{bold:true,h:'left'});
+    else{let rr=r0;rs.forEach(x=>{if(x[3]===2){const rest=r0+n-rr;put(rr,L1,rr+rest-1,V2,x[2],{v:'top',h:'left',size:10});rr+=rest}else{put(rr,L1,rr,L2,x[0],{h:'distributed'});put(rr,CO,rr,CO,'：',{h:'center'});put(rr,V1,rr,V2,x[2],{h:'left'});bd(rr,L1,rr,V2,'t','hair');rr++}})}
+    if(si)bd(r0,X,r0,V2,'t','medium');r+=n});
+  bd(6,X,30,V2,'box','medium');
+  // 画像
+  const slotBox={photo:[28,106,372,556],plan:[400,106,341,300],map:[400,414,341,248]};
+  for(const s of ['photo','plan','map']){const u=IMG[p.id+'_'+s];if(!u)continue;const [x,y,w,h]=slotBox[s],[iw,ih]=await imgDims(u),k=Math.min(w/iw,h/ih),dw=iw*k,dh=ih*k;
+    const id=wb.addImage({base64:u.split(',')[1],extension:'jpeg'});ws.addImage(id,{tl:{col:(x+(w-dw)/2-28)/31+1,row:(y+(h-dh)/2)/22},ext:{width:dw,height:dh}})}
+  // フッター
+  bd(32,2,32,35,'t','mediumDashed');
+  put(33,2,34,13,c.license+(d.trade?'　取引態様：'+d.trade:''),{h:'left',v:'bottom',size:10});put(35,2,35,13,c.name,{bold:true,size:16,h:'left'});
+  put(33,15,35,31,`${c.zip}\n${c.addr}\nＴＥＬ：${c.tel}　ＦＡＸ：${c.fax}`,{h:'left',size:10});
+  bd(33,2,35,35,'box','medium');
+  const lg=wb.addImage({base64:window.AXIA_LOGO.split(',')[1],extension:'png'});ws.addImage(lg,{tl:{col:32.2,row:32.1},ext:{width:58,height:58}});
+  ws.pageSetup.printArea='A1:AJ36';
+  return wb.xlsx.writeBuffer()}
 async function mkExport(kind){const p=L().find(x=>x.id===MK.pid),m=document.getElementById('mkm');if(!p)return;
-  try{if(typeof html2canvas==='undefined')throw 0;m.textContent='作成中…';
-    const host=document.createElement('div');host.style.cssText='position:fixed;left:-20000px;top:0';host.innerHTML=mkHTML(p,false);document.body.appendChild(host);
-    const cv=await html2canvas(host.firstElementChild,{scale:2,backgroundColor:'#fff',useCORS:true});host.remove();
-    const base=`マイソク ${(p.name||'物件').replace(/[\\/:*?"<>|]/g,'')}`;let data,fn;
-    if(kind==='pdf'){if(typeof jspdf==='undefined')throw 0;const pdf=new jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,297,210);data=pdf.output('arraybuffer');fn=base+'.pdf'}
-    else{data=await new Promise(r=>cv.toBlob(r,'image/png'));fn=base+'.png'}
+  const base='マイソク【楽天銀行】 提出用 '+((rkRow(p).C||'物件').replace(/[\\/:*?"<>|]/g,''));
+  try{m.textContent='作成中…';let data,fn;
+    if(kind==='xlsx'){if(typeof ExcelJS==='undefined')throw 0;data=await mkExcel(p);fn=base+'.xlsx'}
+    else{if(typeof html2canvas==='undefined')throw 0;
+      const host=document.createElement('div');host.style.cssText='position:fixed;left:-20000px;top:0';host.innerHTML=mkHTML(p,false);document.body.appendChild(host);
+      const cv=await html2canvas(host.firstElementChild,{scale:2,backgroundColor:'#fff',useCORS:true});host.remove();
+      if(kind==='pdf'){if(typeof jspdf==='undefined')throw 0;const pdf=new jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,297,210);data=pdf.output('arraybuffer');fn=base+'.pdf'}
+      else{data=await new Promise(r=>cv.toBlob(r,'image/png'));fn=base+'.png'}}
     const dl=typeof claude!=='undefined'?await claude.use('downloads').catch(()=>null):null;
     if(dl){await dl.save({filename:fn,data});m.textContent='保存を確認してください'}
     else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=fn;a.click();m.textContent='保存しました'}
   }catch(e){m.textContent=e&&e.code==='cancelled'?'保存をやめました':'保存できませんでした。もう一度試してください'}}
+
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
