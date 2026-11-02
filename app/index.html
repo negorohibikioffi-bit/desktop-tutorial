@@ -43,7 +43,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 .err{color:var(--neg);font-size:13px}
 </style></head><body>
 <header><h1>AXIA 銀行別 机上評価</h1>
-<span id="sync" class="note" style="margin:0">端末内のみ保存</span><div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="dataPanel()">データ</button></div></header>
+<span id="sync" class="note" style="margin:0">端末内のみ保存</span><div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="bulkOpen()">一括読み取り</button><button onclick="dataPanel()">データ</button></div></header>
 <div class="tools" id="tools"></div>
 <nav id="tabs"></nav>
 <main id="main"></main>
@@ -435,6 +435,54 @@ async function mkExport(kind){const p=L().find(x=>x.id===MK.pid),m=document.getE
     else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=fn;a.click();m.textContent='保存しました'}
   }catch(e){m.textContent=e&&e.code==='cancelled'?'保存をやめました':'保存できませんでした。もう一度試してください'}}
 
+/* ---- 一括読み取り：複数のマイソクを読み込み、楽天・イオン・SBJへまとめて登録して机上を出す ---- */
+const BQ={rows:[],busy:false,stop:false};
+const BULK_FIELDS=[['name','物件名','text',190],['price','価格（円）','number',110],['rent','賃料（円）','number',90],['mgmt','管理費','number',70],['repair','修繕費','number',70],['sqm','㎡','number',60],['builtYM','築年月','text',80],['units','戸数','number',60]];
+function bulkOpen(){BQ.rows=[];BQ.created=null;
+  document.getElementById('main').innerHTML=`<div class="bar" style="margin:0 0 12px"><button onclick="render()">← 戻る</button><span class="note" style="margin:0">複数のマイソク（PDF・写真）をまとめて選び、楽天・イオン・SBJの机上を一度に出します</span></div>
+  <div class="card"><h2>1. マイソクを選ぶ</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('bkf').click()">ファイルを選択（複数可）</button><input type="file" id="bkf" accept="application/pdf,image/*" multiple hidden><button id="bks" onclick="BQ.stop=true" hidden>中止</button><span id="bkm" class="note" style="margin:0"></span></div><div id="bkt"></div></div>
+  <div class="card" id="bkc" style="margin-top:16px" hidden><h2>2. 内容を確認して追加</h2>
+   <div class="bar" style="margin:0 0 8px"><b>追加先：</b>${[['sim','楽天銀行'],['ion','イオン銀行'],['sbj','SBJ銀行']].map(([k,l])=>`<label style="margin:0;gap:4px"><input type="checkbox" class="bkb" value="${k}" checked>${l}</label>`).join('')}<button class="pri" onclick="bulkCreate()">チェックした物件を追加して机上を出す</button></div>
+   <div class="note" style="margin:0 0 8px">エリア（赤・青など）、サブリースか集金代行か、保証家賃、TASはマイソクにないため、仮の値で入ります。追加後に各物件で直してください。</div></div>
+  <div id="bkr" style="margin-top:16px"></div>`;
+  document.getElementById('bkf').onchange=e=>{const fs=[...e.target.files];e.target.value='';if(fs.length)bulkRead(fs)}}
+function bulkTable(){const t=document.getElementById('bkt');
+  t.innerHTML=`<div class="sc"><table><thead><tr><th>追加</th><th>ファイル</th><th>状態</th>${BULK_FIELDS.map(f=>`<th>${f[1]}</th>`).join('')}</tr></thead><tbody>${BQ.rows.map((r,i)=>`<tr><td><input type="checkbox" ${r.use?'checked':''} ${r.E?'':'disabled'} onchange="BQ.rows[${i}].use=this.checked"></td><td class="nm" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(r.file.name)}</td><td>${esc(r.st)}</td>${BULK_FIELDS.map(f=>`<td>${r.E?`<input type="${f[2]}" ${f[2]==='number'?'step="any"':''} style="width:${f[3]}px;max-width:none;${f[2]==='text'?'text-align:left':''}" value="${esc(r.E[f[0]]??'')}" oninput="bulkSet(${i},'${f[0]}',this.value,${f[2]==='number'})">`:''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  document.getElementById('bkc').hidden=!BQ.rows.some(r=>r.E)}
+function bulkSet(i,k,v,isNum){BQ.rows[i].E[k]=isNum?(v===''?null:Number(v)):v}
+async function bulkRead(files){
+  const m=document.getElementById('bkm'),stop=document.getElementById('bks');
+  const sample=typeof claude!=='undefined'?await claude.use('sample').catch(()=>null):null;
+  if(!sample){m.textContent='この機能は公開版のページでのみ使えます';return}
+  const lim=await sample.limits().catch(()=>null);if(!lim||!lim.images){m.textContent='この環境では画像の読み取りを使えません';return}
+  const base=BQ.rows.length;files.forEach(f=>BQ.rows.push({file:f,st:'待機中',E:null,use:true}));bulkTable();
+  BQ.stop=false;stop.hidden=false;let done=0;
+  for(let i=base;i<BQ.rows.length;i++){if(BQ.stop){for(let j=i;j<BQ.rows.length;j++)BQ.rows[j].st='中止';break}
+    const r=BQ.rows[i];r.st='読み取り中…';m.textContent=`読み取り中 ${done+1}/${files.length}（初回は許可の確認が出ます）`;bulkTable();
+    try{const blobs=await msBlobs(r.file,lim.images.maxCount||2);r.E=await sample.json(MS_PROMPT,{images:blobs,modelTier:'default'});r.st=r.E.notes?'要確認':'完了'}
+    catch(e){r.st=e&&e.code==='not_granted'?'許可なし':e&&e.code==='rate_limited'?'混雑（再試行を）':e&&e.code==='nopdf'?'PDF不可':'読み取れず';if(e&&(e.code==='not_granted'))BQ.stop=true}
+    done++;bulkTable()}
+  stop.hidden=true;m.textContent=`読み取り完了：${BQ.rows.filter(r=>r.E).length}件／${BQ.rows.length}件`}
+const bkStn=(line,station,walk)=>{const st=station?String(station).replace(/駅$/,'')+'駅':'';const w=walk==null||walk===''?'':Number(walk);return [line,st&&(st+(w!==''&&!isNaN(w)?' 徒歩'+w+'分':''))].filter(Boolean).join(' / ')};
+function bulkProp(bank,E,uid){
+  const n=v=>v===''||v==null||isNaN(Number(v))?'':Number(v),date=/^\d{4}-\d{2}$/.test(E.builtYM||'')?E.builtYM+'-01':'';
+  const base=JSON.parse(JSON.stringify(NEWP[bank])),id='n'+uid+bank[0];
+  if(bank==='sim')return Object.assign(base,{id,name:E.name||'',units:n(E.units),addr:E.address||'',station:bkStn(E.line,E.station,E.walkMin),station2:bkStn(E.line2,E.station2,E.walkMin2),sqm:n(E.sqm),floorsTotal:n(E.floorsTotal),floor:n(E.floor),layout:normLayout(E.layout)||UNSEL,structure:STRUCTS.includes(E.structure)?E.structure:UNSEL,mgmtMethod:METHODS.includes(E.mgmtMethod)?E.mgmtMethod:UNSEL,date,vendor:n(E.price),rent:n(E.rent)||0,mgmt:n(E.mgmt)||0,repair:n(E.repair)===''?0:n(E.repair)});
+  if(bank==='ion'){const reg=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1]||'東京';const w=n(E.walkMin);
+    return Object.assign(base,{id,name:E.name||'',region:reg,area:(AREAS[reg]||[''])[0],walk:w!==''&&w>5?'6分以上':'5分以内',sqm:n(E.sqm),built:date,units:n(E.units),cost:n(E.price),shu:n(E.rent),mgmt:n(E.mgmt),repair:n(E.repair)})}
+  return Object.assign(base,{id,name:E.name||'',sqm:n(E.sqm),built:date,units:n(E.units),maisoku:n(E.price),shu:n(E.rent),mgmtFee:'',mgmt:n(E.mgmt),repair:n(E.repair)})}
+function bulkCreate(){
+  const banks=[...document.querySelectorAll('.bkb:checked')].map(c=>c.value),rows=BQ.rows.filter(r=>r.use&&r.E);
+  if(!banks.length||!rows.length){document.getElementById('bkr').innerHTML='<div class="err">追加する物件と銀行を選んでください</div>';return}
+  const stamp=Date.now();const out=[];
+  rows.forEach((r,i)=>{const o={name:r.E.name||r.file.name,items:{}};banks.forEach(b=>{const p=bulkProp(b,r.E,stamp+'_'+i);S.lists[b].push(p);o.items[b]=p});out.push(o);r.use=false;r.st='追加済み'});
+  save();bulkTable();BQ.created=out;
+  const sim=p=>{const c=AxiaCalc.calc(p).cols[0];return `販売${F(c.price)}万円 ／ 収支${F(c.real)}`};
+  const ion=p=>{const o=AxiaCalc2.ion(p);return o.price==null?`<span class="err">${esc(o.y&&o.y.err||'算出不可')}</span>`:`${o.y.pct}% ／ 販売${F(o.price)}円 ／ 35年収支${F(o.plans[0].income)}`};
+  const sbj=p=>{if(!Number(p.tas))return '<span class="err">TAS未入力（評価額を出せません）</span>';const r=AxiaCalc2.sbj(p);return `${r.ok?'100%':'90%'}融資 ／ 販売${F(r.sale)}円 ／ 収支${F(r.income)}`};
+  const f={sim,ion,sbj};
+  document.getElementById('bkr').innerHTML=`<div class="card sc"><h2>3. 机上の結果（${out.length}物件）</h2><table><thead><tr><th>物件</th>${banks.map(b=>`<th>${TOOLS[b]}</th>`).join('')}</tr></thead><tbody>${out.map(o=>`<tr><td class="nm">${esc(o.name)}</td>${banks.map(b=>`<td style="text-align:left"><a href="#" onclick="event.preventDefault();S.tool='${b}';go('${o.items[b].id}')" style="color:var(--pri)">${f[b](o.items[b])}</a></td>`).join('')}</tr>`).join('')}</tbody></table>
+   <div class="note">結果の行をタップすると、その銀行の物件画面が開きます。イオンはエリア（仮：赤）、SBJはTAS未入力のため、必要に応じて直してください。</div></div>`}
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
