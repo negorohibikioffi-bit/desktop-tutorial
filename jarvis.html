@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JARVIS - AXIA JAPAN</title>
+<style>
+  :root { --c:#4fd8ff; --bg:#030a14; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(circle at 50% 40%,#0a1d33,var(--bg) 70%); color:var(--c);
+         font-family:"Hiragino Sans","Noto Sans JP",sans-serif; height:100vh; display:flex; flex-direction:column; align-items:center; overflow:hidden; }
+  header { padding:16px; letter-spacing:.4em; font-size:12px; opacity:.7; }
+  canvas { flex:1; width:100%; min-height:0; }
+  #log { width:min(680px,92vw); height:120px; overflow:auto; font-size:14px; line-height:1.6; padding:8px 12px;
+         border:1px solid #4fd8ff33; border-radius:8px; background:#04101e99; }
+  #log .me { color:#cfefff; } #log .ai { color:var(--c); }
+  form { display:flex; gap:8px; width:min(680px,92vw); padding:12px 0 20px; }
+  input { flex:1; background:#04101e; border:1px solid #4fd8ff66; color:#dff6ff; padding:10px 12px; border-radius:8px; font-size:16px; }
+  button { background:#0b2a44; color:var(--c); border:1px solid #4fd8ff66; border-radius:8px; padding:0 14px; font-size:15px; cursor:pointer; }
+  button.on { background:var(--c); color:#032; }
+</style>
+</head>
+<body>
+<header>J.A.R.V.I.S. ／ AXIA JAPAN</header>
+<canvas id="cv"></canvas>
+<div id="log"></div>
+<form id="f">
+  <input id="in" placeholder="ジャービス、と話しかけてください" autocomplete="off">
+  <button type="button" id="mic">🎤</button>
+  <button>送信</button>
+</form>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const log = document.getElementById('log'), input = document.getElementById('in');
+let level = 0, target = 0, t = 0;          // level: 声や処理中の強さ(0-1)
+
+function resize(){ cv.width = cv.clientWidth*devicePixelRatio; cv.height = cv.clientHeight*devicePixelRatio; }
+addEventListener('resize', resize); resize();
+
+function draw(){
+  t += 0.016; level += (target-level)*0.1;
+  const w = cv.width, h = cv.height, cx = w/2, cy = h/2, R = Math.min(w,h)*0.22;
+  ctx.clearRect(0,0,w,h);
+  const g = ctx.createRadialGradient(cx,cy,R*0.1,cx,cy,R*(1.6+level));
+  g.addColorStop(0,'rgba(120,230,255,.9)'); g.addColorStop(.4,'rgba(40,150,230,.35)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx,cy,R*(1.6+level),0,7); ctx.fill();
+  for(let i=0;i<4;i++){                      // 回転するリング
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*(0.4+i*0.3)*(i%2?-1:1));
+    ctx.strokeStyle = `rgba(79,216,255,${0.7-i*0.12})`; ctx.lineWidth = 2*devicePixelRatio;
+    ctx.setLineDash([R*0.3, R*0.12*(i+1)]);
+    ctx.beginPath(); ctx.arc(0,0,R*(1+i*0.22)+Math.sin(t*3+i)*level*12,0,7); ctx.stroke(); ctx.restore();
+  }
+  ctx.strokeStyle = 'rgba(200,245,255,.9)'; ctx.lineWidth = 2*devicePixelRatio; ctx.setLineDash([]);
+  ctx.beginPath();                           // 波形
+  for(let x=-R*0.8;x<=R*0.8;x+=4){
+    const y = Math.sin(x*0.05+t*6)*R*0.25*(0.15+level)*Math.cos(x/(R*0.8)*1.5);
+    x===-R*0.8 ? ctx.moveTo(cx+x,cy+y) : ctx.lineTo(cx+x,cy+y);
+  }
+  ctx.stroke(); requestAnimationFrame(draw);
+}
+draw();
+
+function say(who, text){
+  const p = document.createElement('div'); p.className = who; p.textContent = (who==='me'?'響：':'ジャービス：')+text;
+  log.appendChild(p); log.scrollTop = log.scrollHeight;
+}
+function speak(text){
+  say('ai', text);
+  if(!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP';
+  u.onstart = ()=>{ target = 0.8; }; u.onend = ()=>{ target = 0; };
+  u.onboundary = ()=>{ level = 1; };
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+// ---- 返答ロジック（ここを後でAI/バックエンド接続に差し替える） ----
+async function reply(q){
+  if(/契約書|重説|重要事項/.test(q)) return '契約書や重説のPDFをお渡しください。買主目線で手付、契約不適合責任、違約金、法令上の制限などを条文ごとにチェックします。';
+  if(/こんにちは|おはよう|ジャービス/.test(q)) return 'はい、響さん。ご用件をどうぞ。';
+  return '承知しました。現在は簡易モードです。AIとの接続を済ませれば、より詳しくお答えできます。';
+}
+async function ask(q){
+  say('me', q); target = 0.5;
+  const a = await reply(q); speak(a);
+}
+document.getElementById('f').onsubmit = e => { e.preventDefault(); const q = input.value.trim(); if(q){ input.value=''; ask(q);} };
+
+// ---- 音声入力 ----
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const mic = document.getElementById('mic');
+if(SR){
+  const r = new SR(); r.lang = 'ja-JP';
+  r.onresult = e => ask(e.results[0][0].transcript);
+  r.onend = ()=> mic.classList.remove('on');
+  mic.onclick = ()=>{ mic.classList.add('on'); target = 0.4; r.start(); };
+} else mic.style.display = 'none';
+speak('ジャービス、起動しました。');
+</script>
+</body>
+</html>
