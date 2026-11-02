@@ -334,8 +334,10 @@ function mkData(p){
     miss:[[row.F===''&&'価格'],[!p.name&&'物件名'],[!p.addr&&'所在'],[!p.station&&'沿線・駅徒歩'],[!has(p.sqm)&&'専有面積'],[!unsel(p.layout)&&'間取り'],[!unsel(p.structure)&&'構造'],[!has(p.floorsTotal)&&'階数'],[!has(p.floor)&&'所在階'],[!dt&&'建築年月'],[!has(p.units)&&'総戸数'],[!p.mgmtCo&&'建物管理会社'],[!trade&&'取引態様（宅建業法の広告表示に必要）']].map(x=>x[0]).filter(Boolean)}}
 const mkVert=s=>String(s).split('').map(c=>`<div>${esc(c)}</div>`).join('');
 function mkImg(p,slot,cover){const u=IMG[p.id+'_'+slot];return u?`<div style="width:100%;height:100%;background:url(${u}) center/${cover?'cover':'contain'} no-repeat"></div>`:''}
+const mkUnits=t=>[...String(t)].reduce((a,ch)=>a+(/[\u0020-\u007e\uff61-\uff9f]/.test(ch)?(/[A-Z0-9]/.test(ch)?0.68:0.52):1),0);
+const mkFs=(t,w,max)=>Math.max(11,Math.min(max,Math.floor(w/Math.max(1,mkUnits(t)))));
 function mkHTML(p,ph){const d=mkData(p),c=mkCo(),W='font-family:\'Hiragino Sans\',\'Yu Gothic\',\'Noto Sans JP\',sans-serif';
-  const nm=d.name,fs=nm.length>22?20:nm.length>16?24:28;
+  const nm=d.name,fs=mkFs(nm,400,28);
   const slot=(s,x,y,w,h,cover)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;${ph&&!IMG[p.id+'_'+s]?'background:#f1f1f1;color:#999;display:flex;align-items:center;justify-content:center;font-size:14px':''}">${mkImg(p,s,cover)}${ph&&!IMG[p.id+'_'+s]?MK_SLOTS.find(x=>x[0]===s)[1]:''}</div>`;
   const sec=d.rows.map(([lab,rs],i)=>{const nr=rs.length;const rowsH=rs.map(r=>r[3]===2?`<div style="padding:4px 8px;font-size:12px;min-height:30px;line-height:1.5;border-top:1px solid #ccc">${esc(r[2])}</div>`:r[3]===1?`<div style="padding:8px;font-size:13px;line-height:1.4;font-weight:600">${esc(r[2])}</div>`:`<div style="display:flex;align-items:center;height:27px;padding:0 8px;font-size:12px;border-top:1px solid #ddd"><span style="display:flex;justify-content:space-between;width:92px">${String(r[0]).split('').map(ch=>`<span>${esc(ch)}</span>`).join('')}</span><span style="margin:0 6px">：</span><span style="flex:1">${esc(r[2])}</span></div>`).join('');
     return `<div style="display:flex;border-top:${i?'2px solid #000':'0'};${lab==='備考'?'flex:1;':''}"><div style="width:26px;background:#000;color:#fff;font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.35;flex:none">${mkVert(lab)}</div><div style="flex:1">${rowsH}</div></div>`}).join('');
@@ -344,8 +346,8 @@ function mkHTML(p,ph){const d=mkData(p),c=mkCo(),W='font-family:\'Hiragino Sans\
      <div style="position:absolute;left:16px;top:14px;font-size:13px;font-weight:700;line-height:1.3">価<br>格</div>
      <div style="position:absolute;left:78px;top:6px;font-size:42px;font-weight:700;line-height:54px">${esc(d.price)}</div>
      <div style="position:absolute;left:${78+Math.max(1,d.price.length)*24+12}px;top:40px;font-size:13px">万円</div>
-     <div style="position:absolute;left:380px;top:14px;font-size:14px;line-height:19px;width:330px">${d.stations.map(esc).join('<br>')}</div>
-     <div style="position:absolute;right:16px;top:0;width:370px;height:66px;display:flex;align-items:center;justify-content:flex-end;text-align:right;font-size:${fs}px;font-weight:700;line-height:1.15">${esc(nm)}</div></div>
+     <div style="position:absolute;left:360px;top:14px;font-size:13px;line-height:19px;width:270px;white-space:nowrap">${d.stations.map(esc).join('<br>')}</div>
+     <div style="position:absolute;right:16px;top:0;width:400px;height:66px;display:flex;align-items:center;justify-content:flex-end;text-align:right;white-space:nowrap;font-size:${fs}px;font-weight:700;line-height:1.15">${esc(nm)}</div></div>
    ${slot('photo',28,106,372,556,1)}${slot('plan',410,106,340,300)}${slot('map',410,414,340,248,1)}
    <div style="position:absolute;left:760px;top:106px;width:335px;height:556px;border:2px solid #000;display:flex;flex-direction:column;box-sizing:border-box">${sec}</div>
    <div style="position:absolute;left:28px;top:686px;width:1067px;border-top:3px dashed #000"></div>
@@ -390,7 +392,7 @@ async function mkExcel(p){
   ws.getColumn(1).width=3.3;for(let k=2;k<=35;k++)ws.getColumn(k).width=3.7;ws.getColumn(36).width=3.3;for(let r=1;r<=36;r++)ws.getRow(r).height=16.5;
   const FN='游ゴシック',BLK={argb:'FF000000'},WHT={argb:'FFFFFFFF'};
   const cell=(r,k)=>ws.getCell(r,k),fill=(r1,k1,r2,k2,col)=>{for(let r=r1;r<=r2;r++)for(let k=k1;k<=k2;k++)cell(r,k).fill={type:'pattern',pattern:'solid',fgColor:col}};
-  const put=(r1,k1,r2,k2,v,o={})=>{if(r1!==r2||k1!==k2)ws.mergeCells(r1,k1,r2,k2);const x=cell(r1,k1);x.value=v;x.font={name:FN,size:o.size||11,bold:!!o.bold,color:o.color};x.alignment={vertical:o.v||'middle',horizontal:o.h,wrapText:true,textRotation:o.rot};if(o.fmt)x.numFmt=o.fmt;if(o.bg)fill(r1,k1,r2,k2,o.bg)};
+  const put=(r1,k1,r2,k2,v,o={})=>{if(r1!==r2||k1!==k2)ws.mergeCells(r1,k1,r2,k2);const x=cell(r1,k1);x.value=v;x.font={name:FN,size:o.size||11,bold:!!o.bold,color:o.color};x.alignment={vertical:o.v||'middle',horizontal:o.h,wrapText:o.nowrap?false:true,shrinkToFit:!!o.nowrap,textRotation:o.rot};if(o.fmt)x.numFmt=o.fmt;if(o.bg)fill(r1,k1,r2,k2,o.bg)};
   const bd=(r1,k1,r2,k2,side,st)=>{for(let r=r1;r<=r2;r++)for(let k=k1;k<=k2;k++){const b=Object.assign({},cell(r,k).border||{});if(side==='t'&&r===r1||side==='b'&&r===r2||side==='l'&&k===k1||side==='r'&&k===k2||side==='box'&&(r===r1||r===r2||k===k1||k===k2)){if(side==='box'){if(r===r1)b.top={style:st};if(r===r2)b.bottom={style:st};if(k===k1)b.left={style:st};if(k===k2)b.right={style:st}}else b[{t:'top',b:'bottom',l:'left',r:'right'}[side]]={style:st}}cell(r,k).border=b}};
   // ヘッダー帯
   fill(2,2,4,35,BLK);
@@ -398,7 +400,7 @@ async function mkExcel(p){
   const pr=d.price===''?'':Number(String(d.price).replace(/,/g,''));
   put(2,3,4,7,pr,{bold:true,size:22,color:WHT,h:'left',bg:BLK,fmt:'#,##0'});put(3,8,4,9,'万円',{color:WHT,v:'bottom',bg:BLK,size:10});
   put(2,12,4,21,d.stations.join('\n'),{color:WHT,bg:BLK,size:11});
-  put(2,22,4,35,d.name,{bold:true,size:d.name.length>16?16:20,color:WHT,h:'right',bg:BLK});
+  put(2,22,4,35,d.name,{bold:true,size:mkFs(d.name,430,20)*0.75+4>20?20:Math.max(9,Math.round(mkFs(d.name,430,20)*0.9)),color:WHT,h:'right',bg:BLK,nowrap:true});
   // 右の表
   let r=6;const X=25,L1=26,L2=29,CO=30,V1=31,V2=35;
   d.rows.forEach(([lab,rs],si)=>{const isLast=lab==='備考',n=lab==='所在'?2:lab==='建物'?8:lab==='建物管理'?5:(31-r);const r0=r;
