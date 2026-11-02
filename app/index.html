@@ -49,7 +49,8 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <main id="main"></main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
-<script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="template.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
 const TOOLS={sim:'楽天銀行',ion:'イオン銀行',sbj:'SBJ銀行'};
@@ -79,7 +80,8 @@ const SCHEMA={
  sim:[
   ['物件情報',[['name','物件名',T],['room','号室',T],['vendor','業者目線（円）',N],['prop','プロップ評価額（円）',N],['base','基準収支（円/月）',N],['date','築年月日',DT]]],
   ['条件①　賃料・費用',[['mode','形態',SEL,['サブリース','集金代行']],['rent','賃料（円/月）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他費用',N]]],
-  ['条件②　融資',[['rate','金利（％）',PC],['years','融資年数',N]]]],
+  ['条件②　融資',[['rate','金利（％）',PC],['years','融資年数',N]]],
+  ['楽天評価シートの出力項目',[['addr','住居表示',T],['station','最寄駅/徒歩（路線 / 駅 徒歩○分）',T],['sqm','専有面積（㎡）',N],['floorsTotal','総階数',N],['floor','所在階',N],['layout','間取り',T],['outCol','出力する販売価格',SEL,['①','②','③']],['priceOv','販売希望価格を手入力（万円）',N]]]],
  ion:[
   ['物件情報',[['name','物件名',T],['region','地域',SEL,Object.keys(AREAS)],['area','エリア',SEL,p=>AREAS[p.region]||[]],['walk','徒歩',SEL,['5分以内','6分以上']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['cost','仕入れ価格（円）',N]]],
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他',N]]],
@@ -90,7 +92,7 @@ const SCHEMA={
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmtFee','管理手数料',N],['mgmt','管理費',N],['repair','修繕費',N]]],
   ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]]]
 };
-const NEWP={sim:{name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
+const NEWP={sim:{addr:'',station:'',sqm:'',floorsTotal:'',floor:'',layout:'',outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
  ion:{name:'新規物件',region:'東京',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02376,r2:0.0228,r3:0.02532,r4:0.02532,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
  sbj:{name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
 
@@ -124,7 +126,7 @@ const RES={
   const a=AxiaCalc.age(p.date);
   return `<table><thead><tr><th></th><th>①</th><th>②</th><th>③</th></tr></thead><tbody>`+
    row('収支',x=>F(x.income),'income')+row('ローン月返済',x=>F(x.loan))+row('販売金額（万円）',x=>`<span class="big">${F(x.price)}</span>`)+row('実質収支',x=>F(x.real),'real')+row('プロップ倍率',x=>D(x.mult,2))+row('幅（万円）',x=>F(x.width),'width')+
-   `</tbody></table><div class="note">賃管手数料 ${F(r.G3)}円　費用合計 ${F(r.H3)}円　販売①−750万円：${F(r.c3)}円${p.date?'　築年数：'+a+(a==='新築'?'':'日'):''}</div>`},
+   `</tbody></table>${rkNote(p)}<div class="note">賃管手数料 ${F(r.G3)}円　費用合計 ${F(r.H3)}円　販売①−750万円：${F(r.c3)}円${p.date?'　築年数：'+a+(a==='新築'?'':'日'):''}</div>`},
  ion(p){const o=AxiaCalc2.ion(p);const y=o.y;
   let h=`<div class="bar" style="margin:0 0 8px">${pill(o.ok,'融資条件に該当','融資条件に該当しない')}<span class="note" style="margin:0">20㎡以上・築25年未満・20戸以上</span></div>`;
   h+=`<table><tbody><tr><td>築年数</td><td>${o.years==null?'':o.years+'年（'+F(o.days)+'日）'}</td></tr>`+
@@ -162,7 +164,7 @@ function renderList(){let h='';
   L().map(p=>{const r=AxiaCalc2.sbj(p);const H=r.limit,rent=Number(p.shu||p.sub)||0;const rep=H>0?Math.round(AxiaCalc2.pmt(0.01975/12,420,H)):0;
    return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="ck" value="${p.id}" aria-label="選択"></td><td class="nm">${esc(p.name)}</td><td>${p.sqm}</td><td>${p.built?D(r.days/365,1)+'年':''}</td><td>${p.units}</td><td>${r.yieldSale?PCT(r.yieldSale):''}</td><td>${F(p.maisoku)}</td><td>${F(H)}</td><td>${r.ok?'100%':'90%'}</td><td>${F(rent)}</td><td>${F(r.kanseki)}</td><td>${F(p.mgmtFee)}</td><td>${F(rep)}</td><td class="${cls(rent-r.kanseki-Number(p.mgmtFee||0)-rep)}">${F(rent-r.kanseki-(Number(p.mgmtFee)||0)-rep)}</td><td class="${cls(H-(Number(p.maisoku)||0))}">${F(H-(Number(p.maisoku)||0))}</td></tr>`}).join('')+
   `</tbody></table><div class="note">※返済額は金利1.975%・35年(420回)。仕入れ希望額は各物件の「仕入れ上限目安」を使用。管理手数料0の物件はサブリース。</div>`}
- document.getElementById('main').innerHTML=`<div id="cfm"></div><div class="card sc"><h2>${TOOLS[S.tool]}　物件一覧</h2><div class="bar" style="margin:0 0 8px"><button id="bd" onclick="bulkAsk()" disabled>選択した物件を削除</button><span class="note" style="margin:0">チェックを入れて削除します</span></div>${h}</div>`;
+ document.getElementById('main').innerHTML=`<div id="cfm"></div><div class="card sc"><h2>${TOOLS[S.tool]}　物件一覧</h2><div class="bar" style="margin:0 0 8px"><button id="bd" onclick="bulkAsk()" disabled>選択した物件を削除</button>${S.tool==='sim'?'<button class="pri" onclick="rkPanel()">楽天評価シートを出力（Excel）</button>':''}<span class="note" style="margin:0">チェックを入れた物件だけを対象にします（未選択なら全件）</span></div>${h}</div>`;
  const all=document.getElementById('ckall');
  all.onchange=()=>{document.querySelectorAll('.ck').forEach(c=>c.checked=all.checked);selUpd()};
  document.querySelectorAll('.ck').forEach(c=>c.onchange=selUpd)}
@@ -183,7 +185,7 @@ function reset(){try{localStorage.removeItem(KEY);localStorage.removeItem(OLD)}c
 
 /* ---- マイソク読み取り（1枚ずつ・確認画面つき） ---- */
 const MS_PROMPT=`添付は不動産の販売図面（マイソク）です。次のJSONだけを返してください。読み取れない項目はnull。推測で埋めないこと。
-{"name":"物件名（号室があれば含める）","address":"所在地","station":"最寄駅","walkMin":徒歩分数の整数,"sqm":専有面積㎡の数値,"builtYM":"築年月をYYYY-MMで（和暦は西暦に直す）","units":総戸数の整数,"price":販売価格を円の整数,"rent":月額賃料を円の整数,"mgmt":月額管理費を円の整数,"repair":月額修繕積立金を円の整数,"notes":"読み取りに自信がない点や、複数の金額で迷った点（なければ空文字）"}
+{"name":"物件名（号室があれば含める）","address":"所在地","station":"最寄駅","walkMin":徒歩分数の整数,"sqm":専有面積㎡の数値,"builtYM":"築年月をYYYY-MMで（和暦は西暦に直す）","units":総戸数の整数,"price":販売価格を円の整数,"rent":月額賃料を円の整数,"mgmt":月額管理費を円の整数,"repair":月額修繕積立金を円の整数,"line":"沿線名","floorsTotal":総階数の整数,"floor":所在階の整数,"layout":"間取り（例 1K）","notes":"読み取りに自信がない点や、複数の金額で迷った点（なければ空文字）"}
 金額は円単位の整数（万円表記は直す）。賃料・管理費・修繕積立金は月額。`;
 const REGION_BY_PREF=[[/^東京都/,'東京'],[/^大阪府/,'大阪'],[/^(京都府|愛知県)/,'京都・名古屋'],[/^(兵庫県|福岡県)/,'神戸・福岡']];
 async function msBlobs(file,max){
@@ -213,9 +215,12 @@ function msProps(E){
   const t=S.tool,num=v=>v==null||v===''||isNaN(Number(v))?'':Number(v);
   const rows=[['name','物件名',E.name||'',T]];
   if(t!=='sim')rows.push(['sqm','平米数',num(E.sqm),N],['units','総戸数',num(E.units),N]);
-  const ym=/^\d{4}-\d{2}$/.test(E.builtYM||'')?E.builtYM+'-01':'';rows.push(['built','築年月日（日は1日で仮入力）',ym,DT]);
+  const ym=/^\d{4}-\d{2}$/.test(E.builtYM||'')?E.builtYM+'-01':'';rows.push([t==='sim'?'date':'built','築年月日（日は1日で仮入力）',ym,DT]);
   rows.push([t==='sim'?'vendor':t==='sbj'?'maisoku':'cost',t==='sim'?'業者目線（円）':t==='sbj'?'マイソク価格':'仕入れ価格',num(E.price),N]);
   rows.push([t==='sim'?'rent':'shu',t==='sim'?'賃料':'集金代行（実賃）',num(E.rent),N],['mgmt','管理費',num(E.mgmt),N],['repair','修繕費',num(E.repair),N]);
+  if(t==='sim'){const st=E.station?String(E.station).replace(/駅$/,'')+'駅':'';const w=num(E.walkMin);
+    const stn=[E.line,st&&(st+(w!==''?' 徒歩'+w+'分':''))].filter(Boolean).join(' / ');
+    rows.push(['addr','住居表示',E.address||'',T],['station','最寄駅/徒歩',stn,T],['sqm','専有面積（㎡）',num(E.sqm),N],['floorsTotal','総階数',num(E.floorsTotal),N],['floor','所在階',num(E.floor),N],['layout','間取り',E.layout||'',T])}
   if(t==='ion'){const w=num(E.walkMin);if(w!=='')rows.push(['walk','徒歩',w<=5?'5分以内':'6分以上',SEL]);
     const r=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1];if(r)rows.push(['region','地域',r,SEL])}
   return rows}
@@ -230,6 +235,40 @@ function msApply(){const p=getP();window.MSROWS.forEach((r,i)=>{const c=document
   let v=el.dataset&&el.dataset.v!==undefined?el.dataset.v:el.value;if(r[3]===N)v=v===''?'':Number(v);p[r[0]]=v});
   if(S.tool==='ion'&&p.region&&!(AREAS[p.region]||[]).includes(p.area))p.area=(AREAS[p.region]||[''])[0];
   save();head();renderProp();document.getElementById('mss').textContent='反映しました。足りない項目を入力してください'}
+/* ---- 楽天評価シート（Excel出力・楽天タブのみ） ---- */
+const RK_COLS=[['C','物件名称'],['D','住居表示'],['E','最寄駅/徒歩'],['F','販売希望価格（万円）'],['G','専有面積（㎡）'],['H','総階数'],['I','所在階'],['J','間取り'],['K','築年月日']];
+function rkRow(p){const r=AxiaCalc.calc(p),idx={'①':0,'②':1,'③':2}[p.outCol]??0;
+  const ov=p.priceOv!==''&&p.priceOv!=null&&!isNaN(Number(p.priceOv));const price=ov?Number(p.priceOv):r.cols[idx].price;
+  const nm=(p.name||'')+((p.room&&!String(p.name||'').includes(p.room))?' '+p.room+'号室':'');
+  const n=v=>v===''||v==null||isNaN(Number(v))?'':Number(v);
+  return {C:nm,D:p.addr||'',E:p.station||'',F:price>0?price:'',G:n(p.sqm),H:n(p.floorsTotal),I:n(p.floor),J:p.layout||'',K:p.date||''}}
+const rkMissing=row=>RK_COLS.filter(([k])=>row[k]===''||row[k]==null).map(c=>c[1]);
+function rkNote(p){const row=rkRow(p),m=rkMissing(row);
+  return `<div class="note">評価シート：販売希望価格 ${row.F===''?'—':F(row.F)+'万円'}（${p.priceOv!==''&&p.priceOv!=null?'手入力':(p.outCol||'①')}）${m.length?'　<span class="err">未入力：'+m.join('、')+'</span>':'　全項目そろっています'}</div>`}
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+function rkPanel(){const ids=selIds();const list=ids.length?L().filter(p=>ids.includes(p.id)):L();window.RKLIST=list;
+  const rows=list.map(p=>{const row=rkRow(p),m=rkMissing(row);return `<tr><td class="nm">${esc(row.C)}</td><td>${row.F===''?'<span class="err">未入力</span>':F(row.F)}</td><td>${m.length?'<span class="err">未入力：'+m.join('、')+'</span>':'OK'}</td></tr>`}).join('');
+  document.getElementById('cfm').innerHTML=`<div class="card" style="margin-bottom:16px"><h2>楽天評価シートを出力（${list.length}件）</h2>
+   <label><span>日付</span><input type="date" id="rkd" value="${todayStr()}"></label>
+   <label><span>不動産会社名</span><input class="wide" style="width:60%" id="rkc" value="AXIA JAPAN"></label>
+   <div class="sc"><table><thead><tr><th>物件</th><th>販売希望価格（万円）</th><th>状態</th></tr></thead><tbody>${rows}</tbody></table></div>
+   <div class="note">未入力の項目は、物件タブの「楽天評価シートの出力項目」に入力するか、マイソク読み取りで補えます。空欄のままでも出力できます。</div>
+   <div class="bar"><button class="pri" id="rkb" onclick="rkExport()">Excelを出力</button><button onclick="document.getElementById('cfm').innerHTML=''">閉じる</button><span class="note" id="rkm" style="margin:0"></span></div></div>`}
+async function rkExport(){const m=document.getElementById('rkm'),b=document.getElementById('rkb');
+  try{if(typeof ExcelJS==='undefined')throw new Error('lib');b.disabled=true;m.textContent='作成中…';
+    const [y,mo,d]=document.getElementById('rkd').value.split('-').map(Number);const co=document.getElementById('rkc').value;
+    const wb=new ExcelJS.Workbook();await wb.xlsx.load(Uint8Array.from(atob(window.RAKUTEN_TEMPLATE),c=>c.charCodeAt(0)).buffer);
+    const ws=wb.worksheets[0];const sty=[];for(let c=1;c<=11;c++)sty[c]=JSON.parse(JSON.stringify(ws.getCell(2,c).style||{}));
+    for(let r=2;r<=Math.max(ws.rowCount,window.RKLIST.length+1);r++)for(let c=1;c<=11;c++)ws.getCell(r,c).value=null;
+    const dt=s=>{if(!s)return null;const[a,b2,c2]=String(s).split('-').map(Number);return new Date(Date.UTC(a,b2-1,c2))};
+    window.RKLIST.forEach((p,i)=>{const row=rkRow(p),r=i+2;const v=[dt(`${y}-${mo}-${d}`),co,row.C,row.D,row.E,row.F===''?null:row.F,row.G===''?null:row.G,row.H===''?null:row.H,row.I===''?null:row.I,row.J,dt(row.K)];
+      v.forEach((x,c)=>{const cell=ws.getCell(r,c+1);cell.style=JSON.parse(JSON.stringify(sty[c+1]));cell.value=x===''?null:x})});
+    const buf=await wb.xlsx.writeBuffer();const fn=`楽天評価シート ${y}.${String(mo).padStart(2,'0')}.${String(d).padStart(2,'0')}.xlsx`;
+    const dl=typeof claude!=='undefined'?await claude.use('downloads').catch(()=>null):null;
+    if(dl){await dl.save({filename:fn,data:buf});m.textContent='保存を確認してください'}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf]));a.download=fn;a.click();m.textContent='出力しました'}
+  }catch(e){m.textContent=e&&e.code==='cancelled'?'保存をやめました':'出力できませんでした。もう一度試してください'}
+  b.disabled=false}
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
