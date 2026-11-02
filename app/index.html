@@ -47,6 +47,8 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <div class="tools" id="tools"></div>
 <nav id="tabs"></nav>
 <main id="main"></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
@@ -108,10 +110,11 @@ function fieldHTML(p,f){const[k,l,t,o]=f;const v=p[k]??'';
   return `<label><span>${l}</span><input type="number" inputmode="decimal" step="any" data-k="${k}" value="${esc(v)}"></label>`}
 function renderProp(){const p=getP();const g=SCHEMA[S.tool];
   const cards=g.map(([title,fs],i)=>`<div class="card"><h2>${title}</h2>${fs.map(f=>fieldHTML(p,f)).join('')}</div>`).join('');
-  document.getElementById('main').innerHTML=`<div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
+  document.getElementById('main').innerHTML=`<div class="card" id="mscard" style="margin-bottom:16px"><h2>マイソクから自動入力</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('msf').click()">マイソクを選択（PDF・写真）</button><input type="file" id="msf" accept="application/pdf,image/*" hidden><span id="mss" class="note" style="margin:0"></span></div><div id="msr"></div></div><div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
   document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];}renderProp();head();save();} }));
   document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?(e.dataset.pct?Number(e.value)/100:Number(e.value)):e.value;
     if(e.dataset.k==='name'){const b=document.querySelector(`#tabs [data-id="${p.id}"]`);if(b)b.textContent=p.name||'(無題)'}upd();save()})});
+  document.getElementById('msf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)msRead(f)};
   upd()}
 function upd(){const p=getP();if(!p)return;document.getElementById('res').innerHTML=RES[S.tool](p)}
 
@@ -178,6 +181,55 @@ function cp(){const t=document.getElementById('dj');t.select();(navigator.clipbo
 function imp(){try{const l=JSON.parse(di.value);if(!l.sim||!l.ion||!l.sbj)throw 0;S.lists=l;S.cur={sim:'list',ion:'list',sbj:'list'};render()}catch(x){im.textContent='読み込めませんでした'}}
 function reset(){try{localStorage.removeItem(KEY);localStorage.removeItem(OLD)}catch(e){}location.reload()}
 
+/* ---- マイソク読み取り（1枚ずつ・確認画面つき） ---- */
+const MS_PROMPT=`添付は不動産の販売図面（マイソク）です。次のJSONだけを返してください。読み取れない項目はnull。推測で埋めないこと。
+{"name":"物件名（号室があれば含める）","address":"所在地","station":"最寄駅","walkMin":徒歩分数の整数,"sqm":専有面積㎡の数値,"builtYM":"築年月をYYYY-MMで（和暦は西暦に直す）","units":総戸数の整数,"price":販売価格を円の整数,"rent":月額賃料を円の整数,"mgmt":月額管理費を円の整数,"repair":月額修繕積立金を円の整数,"notes":"読み取りに自信がない点や、複数の金額で迷った点（なければ空文字）"}
+金額は円単位の整数（万円表記は直す）。賃料・管理費・修繕積立金は月額。`;
+const REGION_BY_PREF=[[/^東京都/,'東京'],[/^大阪府/,'大阪'],[/^(京都府|愛知県)/,'京都・名古屋'],[/^(兵庫県|福岡県)/,'神戸・福岡']];
+async function msBlobs(file,max){
+  const cv=document.createElement('canvas'),out=[];
+  const draw=async(src,w,h)=>{const k=Math.min(1,1800/Math.max(w,h));cv.width=Math.round(w*k);cv.height=Math.round(h*k);const c=cv.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,cv.width,cv.height);await src(c,k);return new Promise(r=>cv.toBlob(r,'image/jpeg',0.88))};
+  if(file.type==='application/pdf'){
+    if(typeof pdfjsLib==='undefined')throw {code:'nopdf'};
+    pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob(['importScripts("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js")'],{type:'text/javascript'}));
+    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+    for(let i=1;i<=Math.min(pdf.numPages,max,2);i++){const pg=await pdf.getPage(i);const v=pg.getViewport({scale:1});const k=1800/Math.max(v.width,v.height);
+      out.push(await draw(async c=>{await pg.render({canvasContext:c,viewport:pg.getViewport({scale:k})}).promise},v.width*k,v.height*k))}
+  }else{const bmp=await createImageBitmap(file);out.push(await draw(async(c,k)=>c.drawImage(bmp,0,0,bmp.width*k,bmp.height*k),bmp.width,bmp.height))}
+  return out}
+async function msRead(file){
+  const st=document.getElementById('mss'),res=document.getElementById('msr');res.innerHTML='';
+  const sample=typeof claude!=='undefined'?await claude.use('sample').catch(()=>null):null;
+  if(!sample){st.textContent='この機能は公開版のページでのみ使えます';return}
+  try{
+    const lim=await sample.limits().catch(()=>null);
+    if(!lim||!lim.images){st.textContent='この環境では画像の読み取りを使えません';return}
+    st.textContent='読み取り中…（初回は許可の確認が出ます）';
+    const blobs=await msBlobs(file,lim.images.maxCount||2);
+    const E=await sample.json(MS_PROMPT,{images:blobs,modelTier:'default'});
+    st.textContent='読み取りました。内容を確認してください';msShow(E)
+  }catch(e){st.textContent=e&&e.code==='nopdf'?'PDFを開けませんでした。写真かスクショで試してください':e&&e.code==='not_granted'?'許可されなかったため読み取りません':e&&e.code==='rate_limited'?'短時間に多く使いました。少し待ってください':'読み取れませんでした。画像を変えて試してください'}}
+function msProps(E){
+  const t=S.tool,num=v=>v==null||v===''||isNaN(Number(v))?'':Number(v);
+  const rows=[['name','物件名',E.name||'',T]];
+  if(t!=='sim')rows.push(['sqm','平米数',num(E.sqm),N],['units','総戸数',num(E.units),N]);
+  const ym=/^\d{4}-\d{2}$/.test(E.builtYM||'')?E.builtYM+'-01':'';rows.push(['built','築年月日（日は1日で仮入力）',ym,DT]);
+  rows.push([t==='sim'?'vendor':t==='sbj'?'maisoku':'cost',t==='sim'?'業者目線（円）':t==='sbj'?'マイソク価格':'仕入れ価格',num(E.price),N]);
+  rows.push([t==='sim'?'rent':'shu',t==='sim'?'賃料':'集金代行（実賃）',num(E.rent),N],['mgmt','管理費',num(E.mgmt),N],['repair','修繕費',num(E.repair),N]);
+  if(t==='ion'){const w=num(E.walkMin);if(w!=='')rows.push(['walk','徒歩',w<=5?'5分以内':'6分以上',SEL]);
+    const r=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1];if(r)rows.push(['region','地域',r,SEL])}
+  return rows}
+function msShow(E){const p=getP(),rows=msProps(E);window.MSROWS=rows;
+  const cell=(r,i)=>r[3]===SEL?`<span id="msv${i}" data-v="${esc(r[2])}">${esc(r[2])}</span>`:`<input id="msv${i}" type="${r[3]===N?'number':r[3]===DT?'date':'text'}" step="any" value="${esc(r[2])}" ${r[3]===T?'class="wide" style="width:100%"':''}>`;
+  document.getElementById('msr').innerHTML=`<div class="note" style="margin:10px 0 4px">${esc([E.address,E.station&&('最寄駅 '+E.station),E.walkMin!=null&&('徒歩'+E.walkMin+'分')].filter(Boolean).join(' / '))}</div>
+  ${E.notes?`<div class="err" style="margin:4px 0">要確認：${esc(E.notes)}</div>`:''}
+  <table><thead><tr><th>反映</th><th>項目</th><th>読み取り結果</th><th>現在の値</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><input type="checkbox" id="msc${i}" ${r[2]===''?'':'checked'} ${r[2]===''?'disabled':''}></td><td>${r[1]}</td><td>${cell(r,i)}</td><td>${esc(p[r[0]]??'')}</td></tr>`).join('')}</tbody></table>
+  <div class="note">エリア（赤・青など）、サブリースか集金代行か、利回りはマイソクに載っていないため、反映後に入力してください。</div>
+  <div class="bar"><button class="pri" onclick="msApply()">チェックした項目を反映</button><button onclick="document.getElementById('msr').innerHTML='';document.getElementById('mss').textContent=''">やめる</button></div>`}
+function msApply(){const p=getP();window.MSROWS.forEach((r,i)=>{const c=document.getElementById('msc'+i);if(!c||!c.checked)return;const el=document.getElementById('msv'+i);
+  let v=el.dataset&&el.dataset.v!==undefined?el.dataset.v:el.value;if(r[3]===N)v=v===''?'':Number(v);p[r[0]]=v});
+  if(S.tool==='ion'&&p.region&&!(AREAS[p.region]||[]).includes(p.area))p.area=(AREAS[p.region]||[''])[0];
+  save();head();renderProp();document.getElementById('mss').textContent='反映しました。足りない項目を入力してください'}
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
