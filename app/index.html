@@ -43,7 +43,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 .err{color:var(--neg);font-size:13px}
 </style></head><body>
 <header><h1>AXIA 銀行別 机上評価</h1>
-<div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="dataPanel()">データ</button></div></header>
+<span id="sync" class="note" style="margin:0">端末内のみ保存</span><div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="dataPanel()">データ</button></div></header>
 <div class="tools" id="tools"></div>
 <nav id="tabs"></nav>
 <main id="main"></main>
@@ -59,7 +59,8 @@ if(!S||!S.lists){
   S={tool:'sim',cur:{sim:'list',ion:'list',sbj:'list'},lists:{
     sim:old&&old.list&&old.list.length?old.list:mk(window.SEED,'s'),ion:mk(window.SEED_ION,'i'),sbj:mk(window.SEED_SBJ,'b')}};
 }
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let SYNC={col:null,last:{},timer:null,busy:false};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}schedSync()};
 const L=()=>S.lists[S.tool],cur=()=>S.cur[S.tool];
 const getP=()=>L().find(p=>p.id===cur());
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -176,5 +177,54 @@ function dataPanel(){document.getElementById('main').innerHTML=`<div class="card
 function cp(){const t=document.getElementById('dj');t.select();(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>cm.textContent='コピーしました',()=>cm.textContent='選択済みです。コピー操作をしてください')}
 function imp(){try{const l=JSON.parse(di.value);if(!l.sim||!l.ion||!l.sbj)throw 0;S.lists=l;S.cur={sim:'list',ion:'list',sbj:'list'};render()}catch(x){im.textContent='読み込めませんでした'}}
 function reset(){try{localStorage.removeItem(KEY);localStorage.removeItem(OLD)}catch(e){}location.reload()}
+
+/* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
+const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
+const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
+function allDocs(){const o={};for(const t of Object.keys(S.lists))S.lists[t].forEach((p,i)=>{o[p.id]=JSON.parse(JSON.stringify({...p,tool:t,order:i}))});return o}
+function schedSync(){if(!SYNC.col)return;const cur=allDocs();
+  const same=Object.keys(cur).length===Object.keys(SYNC.last).length&&Object.keys(cur).every(id=>SYNC.last[id]===stable(cur[id]));
+  if(same)return;clearTimeout(SYNC.timer);setSync('保存中…');SYNC.timer=setTimeout(flush,700)}
+async function flush(){SYNC.timer=null;if(!SYNC.col)return;if(SYNC.busy){SYNC.timer=setTimeout(flush,500);return}
+  SYNC.busy=true;
+  try{const cur=allDocs();
+    for(const id in cur){const js=stable(cur[id]);if(SYNC.last[id]!==js){await SYNC.col.doc(id).set(cur[id]);SYNC.last[id]=js}}
+    for(const id of Object.keys(SYNC.last)){if(!cur[id]){await SYNC.col.doc(id).delete();delete SYNC.last[id]}}
+    setSync('同期済み')}
+  catch(e){setSync('同期エラー（この端末には保存済み）')}
+  SYNC.busy=false}
+function applyRemote(docs){
+  const lists={sim:[],ion:[],sbj:[]};
+  docs.forEach(d=>{const x={...d.data()};const t=x.tool;if(!lists[t])return;lists[t].push({...x,id:d.id})});
+  for(const t in lists)lists[t].sort((a,b)=>(a.order||0)-(b.order||0)).forEach(p=>{delete p.tool;delete p.order});
+  const rem={};docs.forEach(d=>{rem[d.id]=stable(d.data())});
+  SYNC.last=rem;
+  try{localStorage.setItem('axia-v2-backup',JSON.stringify(S.lists))}catch(e){}
+  S.lists=lists;
+  for(const t in S.cur)if(S.cur[t]!=='list'&&!lists[t].find(p=>p.id===S.cur[t]))S.cur[t]='list';
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+  const a=document.activeElement;if(cur()==='list'||!a||a.tagName!=='INPUT')render();else head()}
+async function startSync(){
+  try{
+    const user=await claude.use('user'),db=await claude.use('db');
+    const uid=user&&await user.id();
+    if(!db||!uid){setSync('端末内のみ保存（共有保存を利用できません）');return}
+    const col=db.collection('data/users/'+uid);
+    let first=true;const t=setTimeout(()=>setSync('接続中…（端末内のデータを表示中）'),10000);
+    col.onSnapshot(async snap=>{
+      if(snap.metadata.fromCache&&first&&snap.empty)return;
+      clearTimeout(t);
+      const docs=snap.docs.filter(d=>d.id!=='_meta'&&d.exists);
+      const hasMeta=snap.docs.some(d=>d.id==='_meta');
+      if(first){first=false;
+        if(!hasMeta&&!docs.length){await col.doc('_meta').set({v:1});SYNC.col=col;SYNC.last={};await flush();return}
+        SYNC.col=col;applyRemote(docs);setSync('同期済み');return}
+      if(SYNC.timer||SYNC.busy)return;
+      const rem={};docs.forEach(d=>{rem[d.id]=stable(d.data())});
+      const same=Object.keys(rem).length===Object.keys(SYNC.last).length&&Object.keys(rem).every(id=>SYNC.last[id]===rem[id]);
+      if(!same){applyRemote(docs);setSync('同期済み')}
+    },()=>setSync('同期エラー（この端末には保存済み）'));
+  }catch(e){setSync('端末内のみ保存')}}
 render();
+startSync();
 </script></body></html>
