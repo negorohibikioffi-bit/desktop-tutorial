@@ -64,10 +64,17 @@ function say(who, text){
   const p = document.createElement('div'); p.className = who; p.textContent = (who==='me'?'響：':'ジャービス：')+text;
   log.appendChild(p); log.scrollTop = log.scrollHeight;
 }
+function pickVoice(){
+  const vs = speechSynthesis.getVoices().filter(v=>/^ja/i.test(v.lang));
+  return vs.find(v=>/Ichiro|Otoya|Hattori|Takumi|Male|男/i.test(v.name)) || vs.find(v=>!/Haruka|Ayumi|Sayaka|Nanami|Kyoko|female|女/i.test(v.name)) || vs[0];
+}
+speechSynthesis.onvoiceschanged = ()=>{};
 function speak(text){
   say('ai', text);
   if(!('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP';
+  const v = pickVoice(); if(v) u.voice = v;
+  u.pitch = 0.7; u.rate = 0.92;   // 低く落ち着いた声
   u.onstart = ()=>{ target = 0.8; }; u.onend = ()=>{ target = 0; };
   u.onboundary = ()=>{ level = 1; };
   speechSynthesis.cancel(); speechSynthesis.speak(u);
@@ -76,8 +83,8 @@ function speak(text){
 // ---- 返答ロジック（ここを後でAI/バックエンド接続に差し替える） ----
 async function reply(q){
   if(/契約書|重説|重要事項/.test(q)) return '契約書や重説のPDFをお渡しください。買主目線で手付、契約不適合責任、違約金、法令上の制限などを条文ごとにチェックします。';
-  if(/こんにちは|おはよう|ジャービス/.test(q)) return 'はい、響さん。ご用件をどうぞ。';
-  return '承知しました。現在は簡易モードです。AIとの接続を済ませれば、より詳しくお答えできます。';
+  if(/こんにちは|おはよう|ジャービス/.test(q)) return 'はい、響様。ご用件をどうぞ。';
+  return 'かしこまりました。現在は簡易モードで稼働しております。AIとの接続を済ませれば、より詳しくお答えできます。';
 }
 async function ask(q){
   say('me', q); target = 0.5;
@@ -94,7 +101,7 @@ if(SR){
   r.onend = ()=> mic.classList.remove('on');
   mic.onclick = ()=>{ mic.classList.add('on'); target = 0.4; r.start(); };
 } else mic.style.display = 'none';
-speak('ジャービス、起動しました。');
+speak('システム起動しました。おかえりなさいませ、響様。');
 </script>
 </body>
 </html>
