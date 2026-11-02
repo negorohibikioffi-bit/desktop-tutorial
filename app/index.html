@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AXIA 収支シミュレーター</title>
+<title>銀行別 机上評価</title>
 <style>
 :root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mut:#6b7686;--pri:#1f3a5f;--onpri:#fff;--line:#dde3ea;--neg:#c0392b;--ok:#1e7a46;--okbg:#e3f3ea;--ngbg:#fbe7e4}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161c;--card:#1b222b;--ink:#e6ebf1;--mut:#93a0b0;--pri:#7fb0ee;--onpri:#12161c;--line:#2c3643;--neg:#ff7b6b;--ok:#6fd49a;--okbg:#18362a;--ngbg:#402320;color-scheme:dark}}
@@ -41,7 +41,7 @@ td.nm{color:var(--ink)}
 details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 .err{color:var(--neg);font-size:13px}
 </style></head><body>
-<header><h1>AXIA 収支シミュレーター</h1>
+<header><h1>AXIA 銀行別 机上評価</h1>
 <div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="dataPanel()">データ</button></div></header>
 <div class="tools" id="tools"></div>
 <nav id="tabs"></nav>
@@ -49,7 +49,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
-const TOOLS={sim:'収支シミュレーター',ion:'イオン銀行',sbj:'SBJ銀行'};
+const TOOLS={sim:'楽天銀行',ion:'イオン銀行',sbj:'SBJ銀行'};
 let S=null;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.lists){
