@@ -50,7 +50,9 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="template.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="logo.js"></script><script src="template.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
 const TOOLS={sim:'楽天銀行',ion:'イオン銀行',sbj:'SBJ銀行'};
@@ -81,7 +83,8 @@ const SCHEMA={
   ['物件情報',[['name','物件名',T],['room','号室',T],['vendor','業者目線（円）',N],['prop','プロップ評価額（円）',N],['base','基準収支（円/月）',N],['date','築年月日',DT]]],
   ['条件①　賃料・費用',[['mode','形態',SEL,['サブリース','集金代行']],['rent','賃料（円/月）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他費用',N]]],
   ['条件②　融資',[['rate','金利（％）',PC],['years','融資年数',N]]],
-  ['楽天評価シートの出力項目',[['addr','住居表示',T],['station','最寄駅/徒歩（路線 / 駅 徒歩○分）',T],['sqm','専有面積（㎡）',N],['floorsTotal','総階数',N],['floor','所在階',N],['layout','間取り',T],['outCol','出力する販売価格',SEL,['①','②','③']],['priceOv','販売希望価格を手入力（万円）',N]]]],
+  ['楽天評価シートの出力項目',[['addr','住居表示',T],['station','最寄駅/徒歩（路線 / 駅 徒歩○分）',T],['sqm','専有面積（㎡）',N],['floorsTotal','総階数',N],['floor','所在階',N],['layout','間取り',T],['outCol','出力する販売価格',SEL,['①','②','③']],['priceOv','販売希望価格を手入力（万円）',N]]],
+  ['マイソク（販売図面）の項目',[['units','総戸数',N],['structure','構造',T],['land','土地権利',T],['mgmtCo','建物管理会社',T],['mgmtType','管理形態',T],['mgmtMethod','管理方式',T],['guarantee','保証家賃（家賃表示＝保証家賃÷0.9）',N],['remarks','備考',T],['tradeType','取引態様',SEL,['（未選択）','売主','媒介','代理']],['showInternal','オーナー収支・幅を図面に',SEL,['載せない','載せる']]]]],
  ion:[
   ['物件情報',[['name','物件名',T],['region','地域',SEL,Object.keys(AREAS)],['area','エリア',SEL,p=>AREAS[p.region]||[]],['walk','徒歩',SEL,['5分以内','6分以上']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['cost','仕入れ価格（円）',N]]],
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmt','管理費',N],['repair','修繕費',N],['other','その他',N]]],
@@ -92,7 +95,7 @@ const SCHEMA={
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmtFee','管理手数料',N],['mgmt','管理費',N],['repair','修繕費',N]]],
   ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]]]
 };
-const NEWP={sim:{addr:'',station:'',sqm:'',floorsTotal:'',floor:'',layout:'',outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
+const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',land:'所有権',mgmtCo:'',mgmtType:'全部委託',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',sqm:'',floorsTotal:'',floor:'',layout:'',outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
  ion:{name:'新規物件',region:'東京',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02376,r2:0.0228,r3:0.02532,r4:0.02532,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
  sbj:{name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
 
@@ -112,7 +115,7 @@ function fieldHTML(p,f){const[k,l,t,o]=f;const v=p[k]??'';
   return `<label><span>${l}</span><input type="number" inputmode="decimal" step="any" data-k="${k}" value="${esc(v)}"></label>`}
 function renderProp(){const p=getP();const g=SCHEMA[S.tool];
   const cards=g.map(([title,fs],i)=>`<div class="card"><h2>${title}</h2>${fs.map(f=>fieldHTML(p,f)).join('')}</div>`).join('');
-  document.getElementById('main').innerHTML=`<div class="card" id="mscard" style="margin-bottom:16px"><h2>マイソクから自動入力</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('msf').click()">マイソクを選択（PDF・写真）</button><input type="file" id="msf" accept="application/pdf,image/*" hidden><span id="mss" class="note" style="margin:0"></span></div><div id="msr"></div></div><div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
+  document.getElementById('main').innerHTML=`<div class="card" id="mscard" style="margin-bottom:16px"><h2>マイソクから自動入力</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('msf').click()">マイソクを選択（PDF・写真）</button>${S.tool==='sim'?'<button onclick="mkOpen()">マイソクを作成</button>':''}<input type="file" id="msf" accept="application/pdf,image/*" hidden><span id="mss" class="note" style="margin:0"></span></div><div id="msr"></div></div><div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>`;
   document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];}renderProp();head();save();} }));
   document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?(e.dataset.pct?Number(e.value)/100:Number(e.value)):e.value;
     if(e.dataset.k==='name'){const b=document.querySelector(`#tabs [data-id="${p.id}"]`);if(b)b.textContent=p.name||'(無題)'}upd();save()})});
@@ -220,7 +223,7 @@ function msProps(E){
   rows.push([t==='sim'?'rent':'shu',t==='sim'?'賃料':'集金代行（実賃）',num(E.rent),N],['mgmt','管理費',num(E.mgmt),N],['repair','修繕費',num(E.repair),N]);
   if(t==='sim'){const st=E.station?String(E.station).replace(/駅$/,'')+'駅':'';const w=num(E.walkMin);
     const stn=[E.line,st&&(st+(w!==''?' 徒歩'+w+'分':''))].filter(Boolean).join(' / ');
-    rows.push(['addr','住居表示',E.address||'',T],['station','最寄駅/徒歩',stn,T],['sqm','専有面積（㎡）',num(E.sqm),N],['floorsTotal','総階数',num(E.floorsTotal),N],['floor','所在階',num(E.floor),N],['layout','間取り',E.layout||'',T])}
+    rows.push(['units','総戸数',num(E.units),N],['addr','住居表示',E.address||'',T],['station','最寄駅/徒歩',stn,T],['sqm','専有面積（㎡）',num(E.sqm),N],['floorsTotal','総階数',num(E.floorsTotal),N],['floor','所在階',num(E.floor),N],['layout','間取り',E.layout||'',T])}
   if(t==='ion'){const w=num(E.walkMin);if(w!=='')rows.push(['walk','徒歩',w<=5?'5分以内':'6分以上',SEL]);
     const r=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1];if(r)rows.push(['region','地域',r,SEL])}
   return rows}
@@ -295,6 +298,88 @@ async function rkExport(){const m=document.getElementById('rkm'),b=document.getE
     else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf]));a.download=fn;a.click();m.textContent='出力しました'}
   }catch(e){m.textContent=e&&e.code==='cancelled'?'保存をやめました':'出力できませんでした。もう一度試してください'}
   b.disabled=false}
+/* ---- マイソク（販売図面）作成：楽天タブ ---- */
+const IMG={},MK={sel:'photo'};
+const MK_SLOTS=[['photo','外観写真'],['plan','間取り図'],['map','地図']];
+const MK_DEF={license:'東京都知事(1)第107172号',name:'株式会社 AXIA JAPAN',zip:'〒105-0004',addr:'東京都港区新橋6-2-1　CIRCLES+ 新橋 10F',tel:'03-6435-8856',fax:'03-6435-8859'};
+function mkCo(){S.mk=Object.assign({},MK_DEF,S.mk||{});return S.mk}
+function mkData(p){
+  const row=rkRow(p),idx={'①':0,'②':1,'③':2}[p.outCol]??0,col=AxiaCalc.calc(p).cols[idx];
+  const has=v=>v!==''&&v!=null,TBD='確認中';
+  const dt=has(p.date)?String(p.date).split('-'):null;
+  const g=has(p.guarantee)?Math.floor(Number(p.guarantee)/9+1e-9)*10:null;
+  const rent=g!=null?g:(Number(p.rent)||'');
+  const rep=p.repair===0||p.repair==='0'?'管理費に含む':has(p.repair)?F(p.repair)+'円':TBD;
+  const trade=p.tradeType&&p.tradeType!=='（未選択）'?p.tradeType:'';
+  return {price:row.F===''?'':F(row.F),name:row.C,addr:p.addr||'',stations:String(p.station||'').split(/\s*[;；\n]\s*/).filter(Boolean).slice(0,2),
+    rows:[['所在',[['','所在',p.addr||TBD,1]]],
+     ['建物',[['専有面積','',has(p.sqm)?p.sqm+'㎡':TBD],['間取','',p.layout||TBD],['構造','',p.structure||TBD],['階数','',has(p.floorsTotal)?'地上'+p.floorsTotal+'階建て':TBD],['所在階','',has(p.floor)?p.floor+'階':TBD],['建築年月','',dt?dt[0]+'年'+Number(dt[1])+'月':TBD],['総戸数','',has(p.units)?p.units+'戸':TBD],['土地権利','',p.land||TBD]]],
+     ['建物管理',[['建物管理会社','',p.mgmtCo||TBD],['管理形態','',p.mgmtType||TBD],['管理方式','',p.mgmtMethod||TBD],['管理費','',has(p.mgmt)?F(p.mgmt)+'円':TBD],['修繕積立金','',rep]]],
+     ['備考',[['管理方法','',p.mode||TBD],['家賃','',rent===''?TBD:F(rent)+'円']].concat(p.showInternal==='載せる'?[['オーナー収支','',F(col.real)+'円'],['幅','',F(col.width)+'万円']]:[]).concat(has(p.remarks)?[['','',p.remarks,2]]:[])]],
+    trade,
+    miss:[[row.F===''&&'価格'],[!p.name&&'物件名'],[!p.addr&&'所在'],[!p.station&&'沿線・駅徒歩'],[!has(p.sqm)&&'専有面積'],[!p.layout&&'間取り'],[!p.structure&&'構造'],[!has(p.floorsTotal)&&'階数'],[!has(p.floor)&&'所在階'],[!dt&&'建築年月'],[!has(p.units)&&'総戸数'],[!p.land&&'土地権利'],[!p.mgmtCo&&'建物管理会社'],[!trade&&'取引態様（宅建業法の広告表示に必要）']].map(x=>x[0]).filter(Boolean)}}
+const mkVert=s=>String(s).split('').map(c=>`<div>${esc(c)}</div>`).join('');
+function mkImg(p,slot,cover){const u=IMG[p.id+'_'+slot];return u?`<div style="width:100%;height:100%;background:url(${u}) center/${cover?'cover':'contain'} no-repeat"></div>`:''}
+function mkHTML(p,ph){const d=mkData(p),c=mkCo(),W='font-family:\'Hiragino Sans\',\'Yu Gothic\',\'Noto Sans JP\',sans-serif';
+  const nm=d.name,fs=nm.length>22?20:nm.length>16?24:28;
+  const slot=(s,x,y,w,h,cover)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;${ph&&!IMG[p.id+'_'+s]?'background:#f1f1f1;color:#999;display:flex;align-items:center;justify-content:center;font-size:14px':''}">${mkImg(p,s,cover)}${ph&&!IMG[p.id+'_'+s]?MK_SLOTS.find(x=>x[0]===s)[1]:''}</div>`;
+  const sec=d.rows.map(([lab,rs],i)=>{const nr=rs.length;const rowsH=rs.map(r=>r[3]===2?`<div style="padding:4px 8px;font-size:12px;min-height:30px;line-height:1.5;border-top:1px solid #ccc">${esc(r[2])}</div>`:r[3]===1?`<div style="padding:8px;font-size:13px;line-height:1.4;font-weight:600">${esc(r[2])}</div>`:`<div style="display:flex;align-items:center;height:27px;padding:0 8px;font-size:12px;border-top:1px solid #ddd"><span style="display:flex;justify-content:space-between;width:92px">${String(r[0]).split('').map(ch=>`<span>${esc(ch)}</span>`).join('')}</span><span style="margin:0 6px">：</span><span style="flex:1">${esc(r[2])}</span></div>`).join('');
+    return `<div style="display:flex;border-top:${i?'2px solid #000':'0'};${lab==='備考'?'flex:1;':''}"><div style="width:26px;background:#000;color:#fff;font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.35;flex:none">${mkVert(lab)}</div><div style="flex:1">${rowsH}</div></div>`}).join('');
+  return `<div style="position:relative;width:1123px;height:794px;background:#fff;color:#111;overflow:hidden;${W}">
+   <div style="position:absolute;left:28px;top:28px;width:1067px;height:66px;background:#000;color:#fff">
+     <div style="position:absolute;left:16px;top:14px;font-size:13px;font-weight:700;line-height:1.3">価<br>格</div>
+     <div style="position:absolute;left:78px;top:6px;font-size:42px;font-weight:700;line-height:54px">${esc(d.price)}</div>
+     <div style="position:absolute;left:${78+Math.max(1,d.price.length)*24+12}px;top:40px;font-size:13px">万円</div>
+     <div style="position:absolute;left:380px;top:14px;font-size:14px;line-height:19px;width:330px">${d.stations.map(esc).join('<br>')}</div>
+     <div style="position:absolute;right:16px;top:0;width:370px;height:66px;display:flex;align-items:center;justify-content:flex-end;text-align:right;font-size:${fs}px;font-weight:700;line-height:1.15">${esc(nm)}</div></div>
+   ${slot('photo',28,106,372,556,1)}${slot('plan',410,106,340,300)}${slot('map',410,414,340,248,1)}
+   <div style="position:absolute;left:760px;top:106px;width:335px;height:556px;border:2px solid #000;display:flex;flex-direction:column;box-sizing:border-box">${sec}</div>
+   <div style="position:absolute;left:28px;top:686px;width:1067px;border-top:3px dashed #000"></div>
+   <div style="position:absolute;left:28px;top:700px;width:1067px;height:70px;border:2px solid #000;border-radius:14px;box-sizing:border-box">
+     <div style="position:absolute;left:22px;top:10px;font-size:13px">${esc(c.license)}${d.trade?'　取引態様：'+esc(d.trade):''}</div>
+     <div style="position:absolute;left:60px;top:32px;font-size:20px;font-weight:700">${esc(c.name)}</div>
+     <div style="position:absolute;left:560px;top:8px;font-size:13px;line-height:19px">${esc(c.zip)}<br>${esc(c.addr)}<br>ＴＥＬ：${esc(c.tel)}　ＦＡＸ：${esc(c.fax)}</div>
+     <div style="position:absolute;right:26px;top:4px;width:58px;height:58px;background:url(${window.AXIA_LOGO}) center/contain no-repeat"></div></div></div>`}
+function mkOpen(){const p=getP();if(!p)return;MK.pid=p.id;const c=mkCo();
+  document.getElementById('main').innerHTML=`<div class="bar" style="margin:0 0 12px"><button onclick="render()">← 物件に戻る</button><button class="pri" onclick="mkExport('png')">PNGで保存</button><button class="pri" onclick="mkExport('pdf')">PDFで保存</button><span id="mkm" class="note" style="margin:0"></span></div>
+  <div class="card" style="padding:8px"><div id="mkw" style="width:100%;overflow:hidden"><div id="mkp" style="transform-origin:0 0"></div></div></div>
+  <div class="grid" style="margin-top:16px">
+   <div class="card"><h2>画像（クリックして選び、貼り付けも可）</h2>${MK_SLOTS.map(([k,l])=>`<div class="bar" id="mks_${k}" style="margin:6px 0;padding:6px;border:1px solid var(--line);border-radius:8px"><b style="min-width:5em">${l}</b><span class="note" id="mkst_${k}" style="margin:0;flex:1"></span><button onclick="mkPick('${k}')">選択</button><button onclick="mkDel('${k}')">削除</button><input type="file" id="mkf_${k}" accept="image/*" hidden></div>`).join('')}
+    <div class="note">画像を選んだ枠に、Ctrl+V（貼り付け）やドラッグ&ドロップでも追加できます。他社の写真は、権利者の許可があるものだけ使ってください。</div></div>
+   <div class="card"><h2>会社情報（図面の下段）</h2>${[['license','免許番号'],['name','会社名'],['zip','郵便番号'],['addr','住所'],['tel','TEL'],['fax','FAX']].map(([k,l])=>`<label><span>${l}</span><input class="wide" style="width:65%" data-mk="${k}" value="${esc(c[k])}"></label>`).join('')}</div></div>
+  <div class="card" id="mkchk" style="margin-top:16px"></div>`;
+  document.querySelectorAll('[data-mk]').forEach(e=>e.oninput=()=>{S.mk[e.dataset.mk]=e.value;save();mkRefresh()});
+  MK_SLOTS.forEach(([k])=>{const b=document.getElementById('mks_'+k),f=document.getElementById('mkf_'+k);
+    b.onclick=e=>{if(e.target.tagName!=='BUTTON'){MK.sel=k;mkMark()}};
+    f.onchange=e=>{const x=e.target.files[0];e.target.value='';if(x)mkSet(k,x)};
+    b.ondragover=e=>e.preventDefault();b.ondrop=e=>{e.preventDefault();const x=e.dataTransfer.files[0];if(x&&x.type.startsWith('image/'))mkSet(k,x)}});
+  document.onpaste=e=>{if(!document.getElementById('mkp'))return;const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith('image/'));if(it){e.preventDefault();mkSet(MK.sel,it.getAsFile())}};
+  window.onresize=mkRefresh;mkRefresh()}
+function mkMark(){MK_SLOTS.forEach(([k])=>{const b=document.getElementById('mks_'+k);if(b)b.style.borderColor=k===MK.sel?'var(--pri)':'var(--line)'})}
+function mkPick(k){MK.sel=k;mkMark();document.getElementById('mkf_'+k).click()}
+function mkRefresh(){const p=L().find(x=>x.id===MK.pid),w=document.getElementById('mkw');if(!p||!w)return;
+  const k=Math.min(1,w.clientWidth/1123);const el=document.getElementById('mkp');el.innerHTML=mkHTML(p,true);el.style.transform=`scale(${k})`;w.style.height=(794*k)+'px';
+  MK_SLOTS.forEach(([s])=>{const e=document.getElementById('mkst_'+s);if(e)e.textContent=IMG[p.id+'_'+s]?'追加済み':'未追加'});mkMark();
+  const m=mkData(p).miss;document.getElementById('mkchk').innerHTML=m.length?`<h2>未入力・要確認の項目</h2><div class="err">${m.join('、')}</div><div class="note">物件の入力項目で補えます。未入力のまま保存すると、図面には「確認中」と表示されます。</div>`:`<h2>確認</h2><div>必要な項目はそろっています。価格・面積・所在などは、保存前に原本と見比べてください。</div>`}
+async function mkSet(slot,file){const p=L().find(x=>x.id===MK.pid);if(!p)return;const m=document.getElementById('mkm');
+  try{const bmp=await createImageBitmap(file),k=Math.min(1,1100/Math.max(bmp.width,bmp.height)),cv=document.createElement('canvas');cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+    const c=cv.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,cv.width,cv.height);c.drawImage(bmp,0,0,cv.width,cv.height);
+    let q=.85,u=cv.toDataURL('image/jpeg',q);while(u.length>240000&&q>.4){q-=.1;u=cv.toDataURL('image/jpeg',q)}
+    const key=p.id+'_'+slot;IMG[key]=u;mkRefresh();
+    if(SYNC.col)SYNC.col.doc('img_'+key).set({data:u}).catch(()=>{m.textContent='画像の同期に失敗しました（この画面では使えます）'})}
+  catch(e){m.textContent='画像を読み込めませんでした'}}
+function mkDel(slot){const key=MK.pid+'_'+slot;delete IMG[key];if(SYNC.col)SYNC.col.doc('img_'+key).delete().catch(()=>{});mkRefresh()}
+async function mkExport(kind){const p=L().find(x=>x.id===MK.pid),m=document.getElementById('mkm');if(!p)return;
+  try{if(typeof html2canvas==='undefined')throw 0;m.textContent='作成中…';
+    const host=document.createElement('div');host.style.cssText='position:fixed;left:-20000px;top:0';host.innerHTML=mkHTML(p,false);document.body.appendChild(host);
+    const cv=await html2canvas(host.firstElementChild,{scale:2,backgroundColor:'#fff',useCORS:true});host.remove();
+    const base=`マイソク ${(p.name||'物件').replace(/[\\/:*?"<>|]/g,'')}`;let data,fn;
+    if(kind==='pdf'){if(typeof jspdf==='undefined')throw 0;const pdf=new jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,297,210);data=pdf.output('arraybuffer');fn=base+'.pdf'}
+    else{data=await new Promise(r=>cv.toBlob(r,'image/png'));fn=base+'.png'}
+    const dl=typeof claude!=='undefined'?await claude.use('downloads').catch(()=>null):null;
+    if(dl){await dl.save({filename:fn,data});m.textContent='保存を確認してください'}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=fn;a.click();m.textContent='保存しました'}
+  }catch(e){m.textContent=e&&e.code==='cancelled'?'保存をやめました':'保存できませんでした。もう一度試してください'}}
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
@@ -306,13 +391,13 @@ async function flush(){SYNC.timer=null;if(!SYNC.col)return;if(SYNC.busy){SYNC.ti
   SYNC.busy=true;
   try{const cur=allDocs();
     for(const id in cur){const js=stable(cur[id]);if(SYNC.last[id]!==js){await SYNC.col.doc(id).set(cur[id]);SYNC.last[id]=js}}
-    for(const id of Object.keys(SYNC.last)){if(!cur[id]){await SYNC.col.doc(id).delete();delete SYNC.last[id]}}
+    for(const id of Object.keys(SYNC.last)){if(!cur[id]){await SYNC.col.doc(id).delete();for(const sl of ['photo','plan','map'])SYNC.col.doc('img_'+id+'_'+sl).delete().catch(()=>{});delete SYNC.last[id]}}
     setSync('同期済み')}
   catch(e){setSync('同期エラー（この端末には保存済み）')}
   SYNC.busy=false}
 function applyRemote(docs){
   const lists={sim:[],ion:[],sbj:[]};
-  docs.forEach(d=>{const x={...d.data()};const t=x.tool;if(!lists[t])return;lists[t].push({...x,id:d.id})});
+  docs.forEach(d=>{if(d.id.startsWith('img_'))return;const x={...d.data()};const t=x.tool;if(!lists[t])return;lists[t].push({...x,id:d.id})});
   for(const t in lists)lists[t].sort((a,b)=>(a.order||0)-(b.order||0)).forEach(p=>{delete p.tool;delete p.order});
   const rem={};docs.forEach(d=>{rem[d.id]=stable(d.data())});
   SYNC.last=rem;
@@ -331,7 +416,8 @@ async function startSync(){
     col.onSnapshot(async snap=>{
       if(snap.metadata.fromCache&&first&&snap.empty)return;
       clearTimeout(t);
-      const docs=snap.docs.filter(d=>d.id!=='_meta'&&d.exists);
+      snap.docs.forEach(d=>{if(d.id.startsWith('img_')&&d.exists)IMG[d.id.slice(4)]=d.data().data});
+      const docs=snap.docs.filter(d=>d.id!=='_meta'&&!d.id.startsWith('img_')&&d.exists);
       const hasMeta=snap.docs.some(d=>d.id==='_meta');
       if(first){first=false;
         if(!hasMeta&&!docs.length){await col.doc('_meta').set({v:1});SYNC.col=col;SYNC.last={};await flush();return}
