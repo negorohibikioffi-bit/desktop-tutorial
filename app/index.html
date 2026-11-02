@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AXIA 収支シミュレーター</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1f3a5f">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mut:#6b7686;--pri:#1f3a5f;--line:#dde3ea;--neg:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b222b;--ink:#e6ebf1;--mut:#93a0b0;--pri:#7fb0ee;--line:#2c3643;--neg:#ff7b6b}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,"Hiragino Sans","Noto Sans JP",sans-serif}
+header{background:var(--pri);color:#fff;padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1}
+@media(prefers-color-scheme:dark){header{color:#12161c}}
+button,select,input{font:inherit}
+button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+button.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+@media(prefers-color-scheme:dark){button.pri{color:#12161c}}
+nav{display:flex;gap:4px;padding:8px 16px 0;overflow-x:auto}
+nav button{border-radius:8px 8px 0 0;white-space:nowrap}nav button.on{background:var(--pri);color:#fff}
+@media(prefers-color-scheme:dark){nav button.on{color:#12161c}}
+main{padding:16px;max-width:980px;margin:0 auto}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{font-size:14px;margin:0 0 10px;color:var(--mut)}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+label span{color:var(--mut);font-size:13px}
+input,select{width:150px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);text-align:right}
+select{text-align:left}input.wide{width:100%;text-align:left}
+table{width:100%;border-collapse:collapse}th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;color:var(--mut)}th{font-weight:600}
+.neg{color:var(--neg)}.big{font-weight:700;font-size:16px}.sc{overflow-x:auto}
+.note{color:var(--mut);font-size:12px;margin-top:8px}
+</style></head><body>
+<header><h1>AXIA 収支シミュレーター</h1>
+<button onclick="addNew()">＋新規物件</button><button onclick="dup()">複製</button><button onclick="del()">削除</button>
+<button onclick="exp()">書き出し</button><button onclick="document.getElementById('f').click()">読み込み</button>
+<input type="file" id="f" accept=".json" hidden></header>
+<nav id="tabs"></nav>
+<main id="main"></main>
+<script src="seed.js"></script><script src="calc.js"></script>
+<script>
+const KEY='axia-sim-v1';
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.list||!S.list.length)S={cur:'list',list:window.SEED.map((p,i)=>({...p,id:'p'+i}))};
+let cur=S.cur&&S.cur!=='list'&&S.list.find(p=>p.id===S.cur)?S.cur:'list';
+const save=()=>{S.cur=cur;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const F=n=>(n==null||isNaN(n))?'':Math.round(n).toLocaleString('ja-JP');
+const D=(n,d=0)=>Number(n).toLocaleString('ja-JP',{maximumFractionDigits:d,minimumFractionDigits:d});
+const cls=n=>n<0?'neg':'';
+const getP=()=>S.list.find(p=>p.id===cur);
+function tabs(){document.getElementById('tabs').innerHTML=
+ `<button class="${cur==='list'?'on':''}" onclick="go('list')">一覧</button>`+
+ S.list.map(p=>`<button class="${cur===p.id?'on':''}" onclick="go('${p.id}')">${esc(p.name||'(無題)')}</button>`).join('')}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function go(id){cur=id;save();render()}
+function render(){tabs();cur==='list'?renderList():renderProp();save()}
+function inp(k,label,type='number',extra=''){const p=getP();return `<label><span>${label}</span><input type="${type}" ${type==='number'?'inputmode="decimal" step="any"':''} value="${esc(p[k]??'')}" data-k="${k}" ${extra}></label>`}
+function renderProp(){const p=getP();
+ document.getElementById('main').innerHTML=`
+ <div class="grid">
+  <div class="card"><h2>物件情報</h2>
+   <label><span>物件名</span><input class="wide" style="width:60%" data-k="name" value="${esc(p.name)}"></label>
+   ${inp('room','号室','text')}${inp('vendor','業者目線（円）')}${inp('prop','プロップ評価額（円）')}${inp('base','基準収支（円/月）')}
+   <label><span>築年月日</span><input type="date" data-k="date" value="${esc(p.date||'')}"></label>
+   <div class="note" id="age"></div></div>
+  <div class="card"><h2>条件①　賃料・費用</h2>
+   <label><span>形態</span><select data-k="mode"><option ${p.mode==='サブリース'?'selected':''}>サブリース</option><option ${p.mode==='集金代行'?'selected':''}>集金代行</option></select></label>
+   ${inp('rent','賃料（円/月）')}
+   <label><span>賃管手数料</span><b id="g3"></b></label>
+   ${inp('mgmt','管理費')}${inp('repair','修繕費')}${inp('other','その他費用')}
+   <label><span>費用合計</span><b id="h3"></b></label>
+   <h2 style="margin-top:14px">条件②　融資</h2>
+   ${inp('rate','金利（0.02748＝2.748%）')}${inp('years','融資年数')}</div>
+ </div>
+ <div class="card sc" style="margin-top:16px"><h2>シミュレーション結果</h2>
+  <table><thead><tr><th></th><th>①</th><th>②</th><th>③</th></tr></thead><tbody id="res"></tbody></table>
+  <div class="note" id="c3"></div></div>`;
+ document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?Number(e.value):e.value;
+   if(e.dataset.k==='name')tabs();upd();save()}));
+ upd()}
+function upd(){const p=getP();if(!p)return;const r=AxiaCalc.calc(p);
+ g3.textContent=F(r.G3)+' 円';h3.textContent=F(r.H3)+' 円';
+ age.textContent=p.date?('築年数：'+AxiaCalc.age(p.date)+(AxiaCalc.age(p.date)==='新築'?'':' 日')):'';
+ const row=(l,f,c)=>`<tr><td>${l}</td>${r.cols.map(x=>`<td class="${c?cls(x[c]):''}">${f(x)}</td>`).join('')}</tr>`;
+ res.innerHTML=row('収支',x=>F(x.income),'income')+row('ローン月返済',x=>F(x.loan))+
+  row('販売金額（万円）',x=>`<span class="big">${F(x.price)}</span>`)+row('実質収支',x=>F(x.real),'real')+
+  row('プロップ倍率',x=>D(x.mult,2))+row('幅（万円）',x=>F(x.width),'width');
+ c3.textContent='販売金額①−750万円：'+F(r.c3)+' 円'}
+function renderList(){const rows=S.list.map(p=>{const r=AxiaCalc.calc(p);const pr=Number(p.prop)||0;
+ return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td style="color:var(--ink)">${esc(p.name)}</td><td>${D((Number(p.rate)||0)*100,3)}%</td><td>${pr?F(pr):''}</td><td>${pr?F(pr*1.25):''}</td><td>${pr?F(pr*1.5):''}</td>${r.cols.map(c=>`<td class="${cls(c.real)}">${F(c.real)}</td>`).join('')}</tr>`}).join('');
+ document.getElementById('main').innerHTML=`<div class="card sc"><h2>物件一覧</h2><table><thead><tr><th>物件名</th><th>金利</th><th>プロップ額</th><th>融資①</th><th>融資②</th><th>①収支</th><th>②収支</th><th>③収支</th></tr></thead><tbody>${rows}</tbody></table>
+ <div class="note">※融資①＝プロップ額×1.25倍、融資②＝プロップ額×1.5倍。収支は実質収支。行をタップで物件へ。</div></div>`}
+function addNew(){const id='p'+Date.now();S.list.push({id,name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''});go(id)}
+function dup(){const p=getP();if(!p)return;const q={...p,id:'p'+Date.now(),name:p.name+'（コピー）'};S.list.push(q);go(q.id)}
+function del(){const p=getP();if(!p||!confirm(`「${p.name}」を削除しますか？`))return;S.list=S.list.filter(x=>x!==p);go('list')}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S.list,null,1)],{type:'application/json'}));a.download='axia-sim-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
+document.getElementById('f').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const l=JSON.parse(t);if(!Array.isArray(l))throw 0;S.list=l.map((p,i)=>({...p,id:p.id||'p'+Date.now()+i}));go('list')}catch(x){alert('読み込めませんでした')}})};
+render();
+</script></body></html>
