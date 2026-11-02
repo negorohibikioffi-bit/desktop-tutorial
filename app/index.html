@@ -263,7 +263,8 @@ mobile：080-3440-2655
 Email：takada@axia-japan.co.jp
 
 ─────────────────────────`;
-const rkMailText=(to,n)=>`${to}\n物件評価ご担当者 様\n\nお世話になっております。\n株式会社AXIA JAPANの髙田です。\n\n物件${n}件の評価をお願いできればと思います。\n何卒よろしくお願い申し上げます。\n\n${RK_SIG}`;
+const rkMailName=p=>{const nm=String(p.name||'');return nm+((p.room&&!nm.includes(p.room))?'　'+p.room+'号室':'')};
+const rkMailText=(to,list)=>`${to}\n\nお世話になっております。\n株式会社AXIA JAPANの髙田です。\n表題の件で評価依頼をお送りいたします。\n\n${list.map(p=>{const f=rkRow(p).F;return rkMailName(p)+(f===''?'':'【'+F(f)+'万円】')}).join('\n')}\n\nよろしくお願いいたします。\n\n${RK_SIG}`;
 function rkCopy(){const t=document.getElementById('rkmail'),m=document.getElementById('rkm2');t.select();
   (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>m.textContent='メール文をコピーしました',()=>m.textContent='選択済みです。コピー操作をしてください')}
 function rkPanel(){const ids=selIds();const list=ids.length?L().filter(p=>ids.includes(p.id)):L();window.RKLIST=list;
@@ -272,8 +273,8 @@ function rkPanel(){const ids=selIds();const list=ids.length?L().filter(p=>ids.in
    <label><span>日付</span><input type="date" id="rkd" value="${todayStr()}"></label>
    <label><span>不動産会社名</span><input class="wide" style="width:60%" id="rkc" value="AXIA JAPAN"></label>
    <h2 class="sub">メール文（コピーして貼り付け）</h2>
-   <label><span>宛先の会社名</span><input class="wide" style="width:60%" id="rkto" value="株式会社SBJ銀行" oninput="document.getElementById('rkmail').value=rkMailText(this.value,window.RKLIST.length)"></label>
-   <textarea id="rkmail" style="height:300px">${esc(rkMailText('株式会社SBJ銀行',list.length))}</textarea>
+   <label><span>宛名（例：斎藤様）</span><input class="wide" style="width:60%" id="rkto" value="斎藤様" oninput="document.getElementById('rkmail').value=rkMailText(this.value,window.RKLIST)"></label>
+   <textarea id="rkmail" style="height:300px">${esc(rkMailText('斎藤様',list))}</textarea>
    <div class="bar"><button class="pri" onclick="rkCopy()">メール文をコピー</button><span class="note" id="rkm2" style="margin:0"></span></div>
    <h2 class="sub">出力する物件</h2>
    <div class="sc"><table><thead><tr><th>物件</th><th>販売希望価格（万円）</th><th>状態</th></tr></thead><tbody>${rows}</tbody></table></div>
