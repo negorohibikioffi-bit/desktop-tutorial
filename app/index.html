@@ -151,8 +151,9 @@ function areaNote(p){const e=document.getElementById('areanote');if(!e)return;co
 function stNames(p){const a=p.area;return Object.entries(window.ION_AREA_MAP||{}).filter(([k,v])=>v+'エリア'===a).map(x=>x[0]).sort((x,y)=>x.localeCompare(y,'ja'))}
 function stList(p){const box=document.getElementById('stbox');if(!box)return;
   if(p.region!=='東京'){box.innerHTML='<div class="note" style="margin:0">駅の一覧は東京のみです（他の地域は地図が画像のため）</div>';return}
-  const L2=stNames(p);box.innerHTML=`<details><summary>${esc(p.area||'')}の駅一覧（${L2.length}駅・タップで駅名に入力）</summary><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${L2.map(k=>`<button class="stc" onclick="ionSt('${k}')">${k}</button>`).join('')}</div></details>`;
+  const L2=stNames(p);box.innerHTML=`<details><summary>${esc(p.area||'')}の駅一覧（${L2.length}駅・タップで駅名に入力）</summary><input class="wide" style="width:100%;margin:6px 0 0" placeholder="駅名で絞り込み" oninput="stFilter(this.value)"><div id="stchips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-height:112px;overflow-y:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg)">${L2.map(k=>`<button class="stc" data-n="${k}" onclick="ionSt('${k}')">${k}</button>`).join('')}</div></details>`;
   const dl=document.getElementById('stlist');if(dl)dl.innerHTML=(L2.length?L2:Object.keys(window.ION_AREA_MAP||{})).map(k=>'<option value="'+k+'">').join('')}
+function stFilter(v){const q=nkSt(v);document.querySelectorAll('#stchips .stc').forEach(b=>{b.hidden=!!q&&!b.dataset.n.includes(q)})}
 function ionSt(name){const p=getP();p.ekimei=name;const i=document.querySelector('[data-k=ekimei]');if(i)i.value=name;const r=ionAutoArea(p);const sel=document.querySelector('[data-k=area]');if(sel&&r.area)sel.value=p.area;areaNote(p);upd();save()}
 function ionPick(area,fromMap){const p=getP();p.area=area;const sel=document.querySelector('[data-k=area]');if(sel)sel.value=area;if(!fromMap&&nkSt(p.ekimei)){S.stArea=S.stArea||{};S.stArea[nkSt(p.ekimei)]=area}areaNote(p);upd();save()}
 function ionMem(){const p=getP();if(nkSt(p.ekimei)){S.stArea=S.stArea||{};S.stArea[nkSt(p.ekimei)]=p.area}areaNote(p);save()}
