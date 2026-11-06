@@ -41,6 +41,7 @@ td.nm{color:var(--ink)}
 .acts{display:flex;gap:6px;flex-wrap:wrap}
 details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 .err{color:var(--neg);font-size:13px}
+.stc{padding:2px 8px;font-size:12px;border-radius:99px}
 </style></head><body>
 <header><h1>AXIA 銀行別 机上評価</h1>
 <span id="sync" class="note" style="margin:0">端末内のみ保存</span><div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="bulkOpen()">一括読み取り</button><button onclick="dataPanel()">データ</button></div></header>
@@ -52,7 +53,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="logo.js"></script><script src="template.js"></script><script src="areas.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
+<script src="logo.js"></script><script src="template.js"></script><script src="areas.js"></script><script src="areachars.js"></script><script src="areafind.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
 const TOOLS={sim:'楽天銀行',ion:'イオン銀行',sbj:'SBJ銀行'};
@@ -81,8 +82,11 @@ const nkSt=v=>String(v||'').replace(/[\s　()（）・]/g,'').replace(/駅$/,'')
 function ionAreaOf(p){const k=nkSt(p.ekimei);if(!k)return {};
   const my=(S.stArea||{})[k];if(my)return {area:my,src:'メモ'};
   if(p.region!=='東京')return {err:'東京以外は地図から判定できません。エリアを選んでください'};
+  const u=[...new Set((window.ionFind&&ionFind(k))||[])];
+  if(u.length===1)return {area:u[0]+'エリア',src:'地図'};
+  if(u.length>1)return {cands:u.map(x=>x+'エリア'),err:'地図で複数の色に該当します（'+u.join('・')+'）。エリアを選んでください'};
   const c=(window.ION_AREA_MAP||{})[k];if(c)return {area:c+'エリア',src:'地図'};
-  return {err:'地図データに該当する駅がありません（赤羽・大崎・練馬など、地図で色が分かれる駅も含む）。エリアを選んでください'}}
+  return {err:'地図に該当する駅が見つかりません。駅名を確認するか、エリアを選んでください'}}
 function ionAutoArea(p){const r=ionAreaOf(p);if(r.area&&(AREAS[p.region]||[]).includes(r.area))p.area=r.area;return r}
 const UNSEL='（未選択）',unsel=v=>v===UNSEL||v==null?'':v;
 const STRUCTS=[UNSEL,'鉄筋コンクリート造','鉄骨鉄筋コンクリート造','鉄骨コンクリート造'],METHODS=[UNSEL,'巡回','日勤','常駐'],
@@ -128,18 +132,30 @@ function fieldHTML(p,f){const[k,l,t,o]=f;const v=p[k]??'';
 function renderProp(){const p=getP();const g=SCHEMA[S.tool];
   const cards=g.map(([title,fs],i)=>`<div class="card"><h2>${title}</h2>${fs.map(f=>fieldHTML(p,f)).join('')}</div>`).join('');
   document.getElementById('main').innerHTML=`<div class="card" id="mscard" style="margin-bottom:16px"><h2>マイソクから自動入力</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('msf').click()">マイソクを選択（PDF・写真）</button>${S.tool==='sim'?'<button onclick="mkOpen()">マイソクを作成</button>':''}<input type="file" id="msf" accept="application/pdf,image/*" hidden><button onclick="msTextToggle()">ネットの情報を貼り付け</button><span id="mss" class="note" style="margin:0"></span></div><div id="mst" hidden style="margin-top:10px"><textarea id="msx" placeholder="不動産サイトの物件情報（物件名、所在地、駅、築年月、面積など）をコピーして、ここに貼り付けてください" style="height:140px"></textarea><div class="bar"><button class="pri" onclick="msReadText()">この文章から読み取る</button></div></div><div id="msr"></div></div><div class="grid">${cards}</div><div class="card sc" style="margin-top:16px"><h2>計算結果</h2><div id="res"></div></div>${S.tool==='sbj'?'<div class="card" style="margin-top:16px"><h2>SBJ銀行へのメール文</h2>'+sbjMailHTML(1)+'</div>':''}`;
-  document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];ionAutoArea(p)}
-      if(e.dataset.k==='area'&&S.tool==='ion'&&nkSt(p.ekimei)){S.stArea=S.stArea||{};S.stArea[nkSt(p.ekimei)]=p.area}renderProp();head();save();} }));
+  document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];ionAutoArea(p)}renderProp();head();save();} }));
   document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?(e.dataset.pct?Number(e.value)/100:Number(e.value)):e.value;
     if(e.dataset.k==='name'){const b=document.querySelector(`#tabs [data-id="${p.id}"]`);if(b)b.textContent=p.name||'(無題)'}
     if(S.tool==='ion'&&e.dataset.k==='ekimei'){const r=ionAutoArea(p);const sel=document.querySelector('[data-k=area]');if(sel&&r.area)sel.value=p.area;areaNote(p)}
     upd();save()})});
-  if(S.tool==='ion'){const sel=document.querySelector('[data-k=area]');if(sel){sel.closest('label').insertAdjacentHTML('afterend','<div class="note" id="areanote" style="margin:0 0 6px"></div>');
-    document.getElementById('main').insertAdjacentHTML('beforeend','<datalist id="stlist">'+Object.keys(window.ION_AREA_MAP||{}).map(k=>'<option value="'+k+'">').join('')+'</datalist>');areaNote(p)}}
+  if(S.tool==='ion'){const sel=document.querySelector('[data-k=area]');if(sel){sel.closest('label').insertAdjacentHTML('afterend','<div class="note" id="areanote" style="margin:0 0 6px"></div><div id="stbox" style="margin:0 0 8px"></div>');
+    document.getElementById('main').insertAdjacentHTML('beforeend','<datalist id="stlist"></datalist>');areaNote(p)}}
   document.getElementById('msf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)msRead(f)};
   upd()}
-function areaNote(p){const e=document.getElementById('areanote');if(!e)return;const r=ionAreaOf(p);
-  e.innerHTML=!p.ekimei?'':r.area?`駅「${esc(p.ekimei)}」→ ${r.area}（${r.src==='地図'?'イオンの区分地図の色':'以前に手動で選んだ内容'}）`:`<span class="err">${esc(r.err||'')}</span>`}
+function areaNote(p){const e=document.getElementById('areanote');if(!e)return;const r=ionAreaOf(p);let h='';
+  if(!p.ekimei)h='<span class="note" style="margin:0">駅名を入れると、東京は地図の色からエリアが自動で入ります。エリアを選ぶと、下にそのエリアの駅が出ます</span>';
+  else if(r.cands)h=`<span class="err">${esc(r.err)}</span> ${r.cands.map(c=>`<button class="stc" onclick="ionPick('${c}')">${c}にする</button>`).join(' ')}`;
+  else if(r.area&&r.area!==p.area)h=`<span class="err">駅「${esc(p.ekimei)}」は${r.src==='地図'?'地図では':'メモでは'}${r.area}です（選択中：${esc(p.area)}）</span> <button class="stc" onclick="ionPick('${r.area}',1)">${r.area}に合わせる</button> <button class="stc" onclick="ionMem()">選択中の${esc(p.area)}で記憶</button>`;
+  else if(r.area)h=`駅「${esc(p.ekimei)}」→ ${r.area}（${r.src==='地図'?'イオンの区分地図の色':'以前に手動で選んだ内容'}）`;
+  else h=`<span class="err">${esc(r.err||'')}</span>`;
+  e.innerHTML=h;stList(p)}
+function stNames(p){const a=p.area;return Object.entries(window.ION_AREA_MAP||{}).filter(([k,v])=>v+'エリア'===a).map(x=>x[0]).sort((x,y)=>x.localeCompare(y,'ja'))}
+function stList(p){const box=document.getElementById('stbox');if(!box)return;
+  if(p.region!=='東京'){box.innerHTML='<div class="note" style="margin:0">駅の一覧は東京のみです（他の地域は地図が画像のため）</div>';return}
+  const L2=stNames(p);box.innerHTML=`<details><summary>${esc(p.area||'')}の駅一覧（${L2.length}駅・タップで駅名に入力）</summary><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${L2.map(k=>`<button class="stc" onclick="ionSt('${k}')">${k}</button>`).join('')}</div></details>`;
+  const dl=document.getElementById('stlist');if(dl)dl.innerHTML=(L2.length?L2:Object.keys(window.ION_AREA_MAP||{})).map(k=>'<option value="'+k+'">').join('')}
+function ionSt(name){const p=getP();p.ekimei=name;const i=document.querySelector('[data-k=ekimei]');if(i)i.value=name;const r=ionAutoArea(p);const sel=document.querySelector('[data-k=area]');if(sel&&r.area)sel.value=p.area;areaNote(p);upd();save()}
+function ionPick(area,fromMap){const p=getP();p.area=area;const sel=document.querySelector('[data-k=area]');if(sel)sel.value=area;if(!fromMap&&nkSt(p.ekimei)){S.stArea=S.stArea||{};S.stArea[nkSt(p.ekimei)]=area}areaNote(p);upd();save()}
+function ionMem(){const p=getP();if(nkSt(p.ekimei)){S.stArea=S.stArea||{};S.stArea[nkSt(p.ekimei)]=p.area}areaNote(p);save()}
 function upd(){const p=getP();if(!p)return;document.getElementById('res').innerHTML=RES[S.tool](p)}
 
 const RES={
@@ -151,7 +167,7 @@ const RES={
    `</tbody></table>${rkNote(p)}<div class="note">賃管手数料 ${F(r.G3)}円　費用合計 ${F(r.H3)}円　販売①−750万円：${F(r.c3)}円${p.date?'　築年数：'+a+(a==='新築'?'':'日'):''}</div>`},
  ion(p){const o=AxiaCalc2.ion(p);const y=o.y;
   let h=`<div class="bar" style="margin:0 0 8px">${pill(o.ok,'融資条件に該当','融資条件に該当しない')}<span class="note" style="margin:0">20㎡以上・築25年未満・20戸以上</span></div>`;
-  h+=`<table><tbody><tr><td>築年数</td><td>${o.years==null?'':o.years+'年（'+F(o.days)+'日）'}</td></tr>`+
+  h+=`<table><tbody><tr><td>エリア・最寄駅</td><td>${esc(p.region||'')} ${esc(p.area||'')}${p.ekimei?'（'+esc(p.ekimei)+'駅・'+esc(p.walk||'')+'）':'（駅名が未入力です）'}</td></tr><tr><td>築年数</td><td>${o.years==null?'':o.years+'年（'+F(o.days)+'日）'}</td></tr>`+
      `<tr><td>想定利回り</td><td>${y.rate?D(y.pct,2)+'%':`<span class="err">${esc(y.err||'')}　→「想定利回り」を手入力</span>`}</td></tr>`+
      `<tr><td>賃料（手取計算用）</td><td>${F(o.rent)}</td></tr><tr><td>手数料合計</td><td>${F(o.feeTotal)}（代行${F(o.agent)}＋管積${F(o.kanseki)}）</td></tr>`+
      `<tr><td>販売価格</td><td><span class="big">${o.price==null?'—':F(o.price)}</span></td></tr>`;
@@ -265,7 +281,7 @@ function msProps(E){
   rows.push([t==='sim'?'rent':'shu',t==='sim'?'賃料':'集金代行（実賃）',num(E.rent),N],['mgmt','管理費',num(E.mgmt),N],['repair','修繕費',num(E.repair),N]);
   if(t==='sim'){const stn=(line,station,walk)=>{const st=station?String(station).replace(/駅$/,'')+'駅':'';const w=num(walk);return [line,st&&(st+(w!==''?' 徒歩'+w+'分':''))].filter(Boolean).join(' / ')};
     rows.push(['units','総戸数',num(E.units),N],['addr','住居表示',E.address||'',T],['station','最寄駅/徒歩',stn(E.line,E.station,E.walkMin),T],['station2','最寄駅/徒歩（2つ目）',stn(E.line2,E.station2,E.walkMin2),T],['sqm','専有面積（㎡）',num(E.sqm),N],['floorsTotal','総階数',num(E.floorsTotal),N],['floor','所在階',num(E.floor),N],['layout','間取り',normLayout(E.layout),SEL],['structure','構造',STRUCTS.includes(E.structure)?E.structure:'',SEL],['mgmtMethod','管理方式',METHODS.includes(E.mgmtMethod)?E.mgmtMethod:'',SEL])}
-  if(t==='ion'){const w=num(E.walkMin);const ek=[E.station,E.station2].find(x=>x&&(window.ION_AREA_MAP||{})[nkSt(x)])||E.station||'';
+  if(t==='ion'){const w=num(E.walkMin);const ek=[E.station,E.station2].find(x=>x&&ionAreaOf({ekimei:x,region:'東京'}).area)||E.station||'';
     if(ek)rows.push(['ekimei','最寄駅名',String(ek).replace(/駅$/,''),T]);if(w!=='')rows.push(['walk','徒歩',w<=5?'5分以内':'6分以上',SEL]);
     const r=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1];if(r)rows.push(['region','地域',r,SEL])}
   return rows}
@@ -497,7 +513,7 @@ function bulkProp(bank,E,uid){
   const n=v=>v===''||v==null||isNaN(Number(v))?'':Number(v),date=/^\d{4}-\d{2}$/.test(E.builtYM||'')?E.builtYM+'-01':'';
   const base=JSON.parse(JSON.stringify(NEWP[bank])),id='n'+uid+bank[0];
   if(bank==='sim')return Object.assign(base,{id,name:E.name||'',units:n(E.units),addr:E.address||'',station:bkStn(E.line,E.station,E.walkMin),station2:bkStn(E.line2,E.station2,E.walkMin2),sqm:n(E.sqm),floorsTotal:n(E.floorsTotal),floor:n(E.floor),layout:normLayout(E.layout)||UNSEL,structure:STRUCTS.includes(E.structure)?E.structure:UNSEL,mgmtMethod:METHODS.includes(E.mgmtMethod)?E.mgmtMethod:UNSEL,date,vendor:n(E.price),rent:n(E.rent)||0,mgmt:n(E.mgmt)||0,repair:n(E.repair)===''?0:n(E.repair)});
-  if(bank==='ion'){const reg=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1]||'東京';const w=n(E.walkMin);const ek=[E.station,E.station2].find(x=>x&&(window.ION_AREA_MAP||{})[nkSt(x)])||E.station||'';
+  if(bank==='ion'){const reg=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1]||'東京';const w=n(E.walkMin);const ek=[E.station,E.station2].find(x=>x&&ionAreaOf({ekimei:x,region:reg}).area)||E.station||'';
     const q=Object.assign(base,{id,name:E.name||'',region:reg,ekimei:String(ek).replace(/駅$/,''),area:(AREAS[reg]||[''])[0],walk:w!==''&&w>5?'6分以上':'5分以内',sqm:n(E.sqm),built:date,units:n(E.units),cost:n(E.price),shu:n(E.rent),mgmt:n(E.mgmt),repair:n(E.repair)});ionAutoArea(q);return q}
   return Object.assign(base,{id,name:E.name||'',sqm:n(E.sqm),built:date,units:n(E.units),maisoku:n(E.price),tas:n(E.tas),shu:n(E.rent),mgmtFee:'',mgmt:n(E.mgmt),repair:n(E.repair)})}
 function bulkCreate(){
