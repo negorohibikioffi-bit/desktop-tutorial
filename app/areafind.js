@@ -32,18 +32,25 @@
         // 前後に同じ並びの文字が続く場合は、より長い駅名の一部とみなして除く
         const ext = (px, py) => { for (let t = 0; t < I.n; t++) { if (Math.abs(D.s[t] - s) < 6 && Math.abs(D.x[t] - px) < s * .35 && Math.abs(D.y[t] - py) < s * .35) return true } return false };
         const stepLen = Math.hypot(sx, sy);
-        if (stepLen < s * 1.25) { if (ext(D.x[i] - sx, D.y[i] - sy) || ext(D.x[cur] + sx, D.y[cur] + sy)) continue }
+        const weak = stepLen < s * 1.25 && (ext(D.x[i] - sx, D.y[i] - sy) || ext(D.x[cur] + sx, D.y[cur] + sy));
         const cnt = {}; idx.forEach(t => { const c = D.c[t]; if (c !== '0') cnt[c] = (cnt[c] || 0) + 1 });
         const best = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
-        if (best) found.push({ c: NAMES[best], x: D.x[i], y: D.y[i], s });
+        if (best) found.push({ c: NAMES[best], x: D.x[i], y: D.y[i], s, weak });
       }
     }
     return found;
   }
-  function find(q) {
+  function find(q0) {
+    const vars = [q0, q0.replace(/ヶ/g, 'ケ'), q0.replace(/ヶ/g, 'が'), q0.replace(/ヶ/g, 'ガ')];
+    for (const v of [...new Set(vars)]) { const r = find1(v); if (r && r.length) return r; }
+    return find1(q0);
+  }
+  function find1(q) {
     const I = IDX || build(); if (!I || q.length < 2) return null;
-    const direct = findPos(q).map(r => r.c);
-    if (direct.length) return direct;
+    const all = findPos(q), strong = all.filter(r => !r.weak).map(r => r.c);
+    if (strong.length) return strong;
+    const weakR = all.map(r => r.c);
+    if (weakR.length) { weakR.weak = true; return weakR; }
     // 2行に分かれた駅名（例：武蔵／小金井）は、近くにある2つの並びが同じ色なら同じ駅とみなす
     const out = [];
     for (let k = 2; k <= q.length - 2; k++) {

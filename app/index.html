@@ -42,6 +42,7 @@ td.nm{color:var(--ink)}
 details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 .err{color:var(--neg);font-size:13px}
 .stc{padding:2px 8px;font-size:12px;border-radius:99px}
+.stc.on{background:var(--pri);color:var(--onpri);border-color:var(--pri)}
 </style></head><body>
 <header><h1>AXIA 銀行別 机上評価</h1>
 <span id="sync" class="note" style="margin:0">端末内のみ保存</span><div class="acts"><button onclick="addNew()">＋新規</button><button onclick="dup()">複製</button><button onclick="del()">削除</button><button onclick="bulkOpen()">一括読み取り</button><button onclick="dataPanel()">データ</button></div></header>
@@ -53,7 +54,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="logo.js"></script><script src="template.js"></script><script src="areas.js"></script><script src="areachars.js"></script><script src="areafind.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
+<script src="logo.js"></script><script src="template.js"></script><script src="areas.js"></script><script src="areachars.js"></script><script src="areafind.js"></script><script src="lines.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
 const TOOLS={sim:'楽天銀行',ion:'イオン銀行',sbj:'SBJ銀行'};
@@ -149,10 +150,28 @@ function areaNote(p){const e=document.getElementById('areanote');if(!e)return;co
   else h=`<span class="err">${esc(r.err||'')}</span>`;
   e.innerHTML=h;stList(p)}
 function stNames(p){const a=p.area;return Object.entries(window.ION_AREA_MAP||{}).filter(([k,v])=>v+'エリア'===a).map(x=>x[0]).sort((x,y)=>x.localeCompare(y,'ja'))}
+const ST_COL={'青':'#29b6e8','赤':'#e8788f','黄':'#d9c400','緑':'#45b45b'};
+function stChip(name,p){const r=ionAreaOf({ekimei:name,region:'東京'});const a=r.area?r.area.replace('エリア',''):'';
+  const col=a?ST_COL[a]:'var(--line)';const tag=a||(r.cands?'複数':'色なし');
+  return `<button class="stc" data-n="${name}" title="${a?a+'エリア':r.cands?'地図で複数の色に該当':'地図に色がありません（対象外の可能性）'}" style="border-left:5px solid ${col};${a?'':'opacity:.6'}" onclick="ionSt('${name}')">${name}<small style="margin-left:4px;color:var(--mut)">${tag}</small></button>`}
 function stList(p){const box=document.getElementById('stbox');if(!box)return;
   if(p.region!=='東京'){box.innerHTML='<div class="note" style="margin:0">駅の一覧は東京のみです（他の地域は地図が画像のため）</div>';return}
-  const L2=stNames(p);box.innerHTML=`<details><summary>${esc(p.area||'')}の駅一覧（${L2.length}駅・タップで駅名に入力）</summary><input class="wide" style="width:100%;margin:6px 0 0" placeholder="駅名で絞り込み" oninput="stFilter(this.value)"><div id="stchips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-height:112px;overflow-y:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg)">${L2.map(k=>`<button class="stc" data-n="${k}" onclick="ionSt('${k}')">${k}</button>`).join('')}</div></details>`;
-  const dl=document.getElementById('stlist');if(dl)dl.innerHTML=(L2.length?L2:Object.keys(window.ION_AREA_MAP||{})).map(k=>'<option value="'+k+'">').join('')}
+  const mode=S.stMode||'line',LN=window.ION_LINES||[],cur=LN.find(l=>l.op+'/'+l.name===S.stLine)||LN[0];
+  const tab=(m,l)=>`<button class="stc ${mode===m?'on':''}" onclick="stMode('${m}')">${l}</button>`;
+  let body,names;
+  if(mode==='line'){
+    const ops=[...new Set(LN.map(l=>l.op))];
+    body=`<select id="stline" style="width:100%;max-width:none;margin:6px 0 0;text-align:left" onchange="stLine(this.value)">${ops.map(o=>`<optgroup label="${o}">${LN.filter(l=>l.op===o).map(l=>`<option value="${esc(l.op+'/'+l.name)}" ${l===cur?'selected':''}>${esc(l.name)}</option>`).join('')}</optgroup>`).join('')}</select>
+    <div class="note" style="margin:4px 0 0">駅の並び順です。色は地図のエリア（青・赤・黄・緑）。「色なし」は地図に色がない駅（対象外の可能性）</div>
+    <div id="stchips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-height:120px;overflow-y:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg)">${cur.st.map(n=>stChip(n,p)).join('')}</div>`;
+    names=cur.st}
+  else{names=stNames(p);
+    body=`<input class="wide" style="width:100%;margin:6px 0 0" placeholder="${esc(p.area||'')}の駅を駅名で絞り込み（${names.length}駅）" oninput="stFilter(this.value)">
+    <div id="stchips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-height:112px;overflow-y:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg)">${names.map(k=>`<button class="stc" data-n="${k}" onclick="ionSt('${k}')">${k}</button>`).join('')}</div>`}
+  box.innerHTML=`<div class="bar" style="margin:0"><b style="font-size:13px">駅を選ぶ</b>${tab('line','路線別')}${tab('area','エリア別')}</div>${body}`;
+  const dl=document.getElementById('stlist');if(dl)dl.innerHTML=(mode==='area'&&names.length?names:Object.keys(window.ION_AREA_MAP||{})).map(k=>'<option value="'+k+'">').join('')}
+function stMode(m){S.stMode=m;save();stList(getP())}
+function stLine(n){S.stLine=n;save();stList(getP())}
 function stFilter(v){const q=nkSt(v);document.querySelectorAll('#stchips .stc').forEach(b=>{b.hidden=!!q&&!b.dataset.n.includes(q)})}
 function ionSt(name){const p=getP();p.ekimei=name;const i=document.querySelector('[data-k=ekimei]');if(i)i.value=name;const r=ionAutoArea(p);const sel=document.querySelector('[data-k=area]');if(sel&&r.area)sel.value=p.area;areaNote(p);upd();save()}
 function ionPick(area,fromMap){const p=getP();p.area=area;const sel=document.querySelector('[data-k=area]');if(sel)sel.value=area;if(!fromMap&&nkSt(p.ekimei)){S.stArea=S.stArea||{};S.stArea[nkSt(p.ekimei)]=area}areaNote(p);upd();save()}
