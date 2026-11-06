@@ -69,8 +69,8 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}schedS
 const L=()=>S.lists[S.tool],cur=()=>S.cur[S.tool];
 const getP=()=>L().find(p=>p.id===cur());
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const F=n=>(n===''||n==null||isNaN(n))?'':Math.round(n).toLocaleString('ja-JP');
-const D=(n,d=0)=>(n===''||n==null||isNaN(n))?'':Number(n).toLocaleString('ja-JP',{maximumFractionDigits:d,minimumFractionDigits:d});
+const F=n=>(n===''||n==null||isNaN(n))?'':(Math.round(n)+0).toLocaleString('ja-JP');
+const D=(n,d=0)=>(n===''||n==null||isNaN(n))?'':(Number(n)+0).toLocaleString('ja-JP',{maximumFractionDigits:d,minimumFractionDigits:d});
 const PCT=(n,d=2)=>(n===''||n==null||!isFinite(n))?'':D(n*100,d)+'%';
 const cls=n=>n<0?'neg':'';
 const pill=(ok,a,b)=>`<span class="pill ${ok?'':'ng'}">${ok?a:b}</span>`;
@@ -104,11 +104,12 @@ const SCHEMA={
  sbj:[
   ['物件情報',[['name','物件名',T],['region','エリア',SEL,['東京','東京以外']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['maisoku','マイソク価格（業者目線）',N],['tas','TAS',N]]],
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmtFee','管理手数料',N],['mgmt','管理費',N],['repair','修繕費',N]]],
-  ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]]]
+  ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]],
+  ['取扱条件の確認（条件書）',[['walk10','徒歩10分以上',SEL,['いいえ','はい']],['unit3','3点ユニット',SEL,['いいえ','はい']],['washer','洗濯機置場なし・室外',SEL,['いいえ','はい']]]]]
 };
 const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',mgmtCo:'',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',station2:'',sqm:'',floorsTotal:'',floor:'',layout:UNSEL,outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
  ion:{name:'新規物件',region:'東京',ekimei:'',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02376,r2:0.0228,r3:0.02532,r4:0.02532,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
- sbj:{name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
+ sbj:{walk10:'いいえ',unit3:'いいえ',washer:'いいえ',name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
 
 /* ---- 画面 ---- */
 function head(){
@@ -158,21 +159,33 @@ const RES={
   h+=`</tbody></table>`;
   if(o.plans)h+=`<table style="margin-top:12px"><thead><tr><th>プラン</th><th>ローン金額</th><th>金利</th><th>収支</th></tr></thead><tbody>${o.plans.map(x=>`<tr><td>${x.label}</td><td>${F(x.amount)}</td><td>${PCT(x.rate,3)}</td><td class="${cls(x.income)}">${F(x.income)}</td></tr>`).join('')}</tbody></table>`;
   return h},
- sbj(p){const r=AxiaCalc2.sbj(p);
-  const d=r.days;
-  return `<div class="bar" style="margin:0 0 8px">${pill(r.ok,'100%融資の対象','90%融資')}<span class="note" style="margin:0">20㎡以上・築25年未満・20戸以上で100%</span></div>
-  <table><tbody>
+ sbj(p){const r=AxiaCalc2.sbj(p),d=r.days,yrs=d==null?null:d/365,sq=Number(p.sqm)||0,un=Number(p.units)||0;
+  const act=r.ok?'b':'d',cell=(k,f,a)=>`<td style="${a===act?'':'opacity:.4'}">${f(r.cols[a][k])}</td>`;
+  const row=(l,k,f)=>`<tr><td>${l}</td>${cell(k,f,'b')}${cell(k,f,'d')}</tr>`;
+  const why=[];if(!(sq>=20))why.push('専有面積が20㎡未満');if(!(un>=20))why.push('総戸数が20戸未満');if(!(d!=null&&d<9125))why.push(d==null?'築年月日が未入力':'築25年以上');
+  const inc=r.income,band=inc>-6000?['ok','基準内（−6,000円より上）']:inc>-8000?['warn','注意（−6,000〜−8,000円）']:['ng','基準外（−8,000円以下）'];
+  const chk=[];const add=(lv,t)=>chk.push([lv,t]);
+  if(sq&&sq<18)add('ng','専有面積18㎡未満は取扱不可');else if(sq&&sq<20)add('warn','専有面積20㎡未満は90%融資');
+  if(yrs!=null&&yrs>=30)add('ng','築30年以上は取扱不可');else if(yrs!=null&&yrs>=25)add('warn','築25年以上は90%融資');
+  else if(yrs!=null&&yrs>=20)add('warn','築20〜25年：条件書では築20年以上は90%融資ですが、シートの式は築25年未満を100%としています。どちらで扱うか確認してください');
+  if(un&&un<20)add('warn','総戸数20戸未満は90%融資');else if(un===20)add('warn','総戸数20戸ちょうど：条件書は「20戸以下→90%」、シートの式は20戸以上を100%としています');
+  if(p.walk10==='はい')add('ng','徒歩10分以上は原則取扱不可');
+  if(p.unit3==='はい')add('ng','3点ユニットは取扱不可');
+  if(p.washer==='はい')add('ng','洗濯機置場なし・室外は取扱不可');
+  const pl={ok:'<span class="pill">○</span>',warn:'<span class="pill" style="background:#fff3cd;color:#8a6d00">注意</span>',ng:'<span class="pill ng">×</span>'};
+  return `<div class="bar" style="margin:0 0 8px">${pill(r.ok,'100%融資','90%融資')}<span class="note" style="margin:0">${r.ok?'20㎡以上・築25年未満・20戸以上':'理由：'+(why.join('、')||'—')}</span></div>
+  <table><thead><tr><th></th><th>100%融資</th><th>90%融資</th></tr></thead><tbody>
+   ${row('利回り計算','yieldEval',F)}${row('評価','evalAmt',F)}${row('表面利回り','yld',v=>v===''?'':PCT(v))}
+   ${row('販売金額','sale',v=>`<span class="big">${F(v)}</span>`)}${row('TAS倍率','tasX',v=>v===''?'':D(v,3))}${row('TAS上限（×1.3／×1.4）','cap',F)}${row('物件幅（評価−マイソク）','width',F)}</tbody></table>
+  ${Number(p.tas)?'':'<div class="err" style="margin-top:6px">TASが未入力です。評価額・販売金額を出すにはTASが必要です</div>'}
+  <table style="margin-top:12px"><tbody>
    <tr><td>築年数</td><td>${d==null?'':D(d/365,1)+'年（'+F(d)+'日）'}</td></tr>
-   <tr><td>評価額</td><td>${F(r.base)}</td></tr>
-   <tr><td>販売金額</td><td><span class="big">${F(r.sale)}</span></td></tr>
-   <tr><td>仕入れ上限目安</td><td>${F(r.limit)}</td></tr>
-   <tr><td>物件幅（評価−マイソク）</td><td>${F(r.width)}</td></tr>
-   <tr><td>TAS倍率</td><td>${D(r.tas,3)}</td></tr>
-   <tr><td>表面利回り（販売金額ベース）</td><td>${PCT(r.yieldSale)}</td></tr>
-   <tr><td>手取賃料</td><td>${F(r.tegaki)}</td></tr>
-   <tr><td>返済額（35年）</td><td>${F(r.repay)}</td></tr>
-   <tr><td>収支</td><td class="${cls(r.income)}"><span class="big">${F(r.income)}</span></td></tr></tbody></table>
-  <div class="note">利回り評価：100%＝${F(r.B18)}、90%＝${F(r.D18)}　TAS上限：×1.3＝${F(r.B23)}、×1.4＝${F(r.D23)}</div>`}
+   <tr><td>手取賃料（賃料−管理手数料−管理費−修繕費）</td><td>${F(r.tegaki)}</td></tr>
+   <tr><td>返済額（金利${PCT(Number(p.rate)||0,3)}・35年）</td><td>${F(r.repay)}</td></tr>
+   <tr><td>収支</td><td class="${cls(inc)}"><span class="big">${F(inc)}</span> ${pl[band[0]]} <span class="note" style="margin:0">${band[1]}</span></td></tr>
+   <tr><td>仕入れ上限目安（評価−${F(p.offset)}円）</td><td>${F(r.limit)}</td></tr></tbody></table>
+  <h2 class="sub">取扱条件の確認</h2>${chk.length?chk.map(([lv,t])=>`<div style="margin:4px 0">${pl[lv]} ${esc(t)}</div>`).join(''):'<div>条件書に反する項目はありません</div>'}
+  <div class="note">基準利回りは条件書で東京4%以上、大阪・京都・兵庫4.5%以上です（シートの注記は版により3.7%・4%・4.2%）。収支の目安はシートの色分け（−6,000円より上／−8,000円以下）に合わせています。</div>`}
 };
 
 function renderList(){let h='';
@@ -453,7 +466,7 @@ async function mkExport(kind){const p=L().find(x=>x.id===MK.pid),m=document.getE
 
 /* ---- 一括読み取り：複数のマイソクを読み込み、楽天・イオン・SBJへまとめて登録して机上を出す ---- */
 const BQ={rows:[],busy:false,stop:false};
-const BULK_FIELDS=[['name','物件名','text',190],['price','価格（円）','number',110],['rent','賃料（円）','number',90],['mgmt','管理費','number',70],['repair','修繕費','number',70],['sqm','㎡','number',60],['builtYM','築年月','text',80],['units','戸数','number',60]];
+const BULK_FIELDS=[['name','物件名','text',190],['price','価格（円）','number',110],['rent','賃料（円）','number',90],['mgmt','管理費','number',70],['repair','修繕費','number',70],['sqm','㎡','number',60],['builtYM','築年月','text',80],['units','戸数','number',60],['tas','TAS（SBJ用）','number',100]];
 function bulkOpen(){BQ.rows=[];BQ.created=null;
   document.getElementById('main').innerHTML=`<div class="bar" style="margin:0 0 12px"><button onclick="render()">← 戻る</button><span class="note" style="margin:0">複数のマイソク（PDF・写真）をまとめて選び、楽天・イオン・SBJの机上を一度に出します</span></div>
   <div class="card"><h2>1. マイソクを選ぶ</h2><div class="bar" style="margin:0"><button class="pri" onclick="document.getElementById('bkf').click()">ファイルを選択（複数可）</button><input type="file" id="bkf" accept="application/pdf,image/*" multiple hidden><button id="bks" onclick="BQ.stop=true" hidden>中止</button><span id="bkm" class="note" style="margin:0"></span></div><div id="bkt"></div></div>
@@ -486,7 +499,7 @@ function bulkProp(bank,E,uid){
   if(bank==='sim')return Object.assign(base,{id,name:E.name||'',units:n(E.units),addr:E.address||'',station:bkStn(E.line,E.station,E.walkMin),station2:bkStn(E.line2,E.station2,E.walkMin2),sqm:n(E.sqm),floorsTotal:n(E.floorsTotal),floor:n(E.floor),layout:normLayout(E.layout)||UNSEL,structure:STRUCTS.includes(E.structure)?E.structure:UNSEL,mgmtMethod:METHODS.includes(E.mgmtMethod)?E.mgmtMethod:UNSEL,date,vendor:n(E.price),rent:n(E.rent)||0,mgmt:n(E.mgmt)||0,repair:n(E.repair)===''?0:n(E.repair)});
   if(bank==='ion'){const reg=(REGION_BY_PREF.find(x=>x[0].test(E.address||''))||[])[1]||'東京';const w=n(E.walkMin);const ek=[E.station,E.station2].find(x=>x&&(window.ION_AREA_MAP||{})[nkSt(x)])||E.station||'';
     const q=Object.assign(base,{id,name:E.name||'',region:reg,ekimei:String(ek).replace(/駅$/,''),area:(AREAS[reg]||[''])[0],walk:w!==''&&w>5?'6分以上':'5分以内',sqm:n(E.sqm),built:date,units:n(E.units),cost:n(E.price),shu:n(E.rent),mgmt:n(E.mgmt),repair:n(E.repair)});ionAutoArea(q);return q}
-  return Object.assign(base,{id,name:E.name||'',sqm:n(E.sqm),built:date,units:n(E.units),maisoku:n(E.price),shu:n(E.rent),mgmtFee:'',mgmt:n(E.mgmt),repair:n(E.repair)})}
+  return Object.assign(base,{id,name:E.name||'',sqm:n(E.sqm),built:date,units:n(E.units),maisoku:n(E.price),tas:n(E.tas),shu:n(E.rent),mgmtFee:'',mgmt:n(E.mgmt),repair:n(E.repair)})}
 function bulkCreate(){
   const banks=[...document.querySelectorAll('.bkb:checked')].map(c=>c.value),rows=BQ.rows.filter(r=>r.use&&r.E);
   if(!banks.length||!rows.length){document.getElementById('bkr').innerHTML='<div class="err">追加する物件と銀行を選んでください</div>';return}

@@ -86,8 +86,13 @@
     const handRent = shu ? num(p.shu) : num(p.sub);
     const tegaki = handRent - num(p.mgmtFee) - num(p.mgmt) - num(p.repair);           // C12 手取賃料
     const repay = rate ? rdown(pmt(rate / 12, 420, base), 0) : 0;                     // C13
+    const B21 = B19, mk = num(p.maisoku), sh = num(p.shu);
+    const cols = {                                                                    // Excelの B列(100%融資) / D列(90%融資)
+      b: { yieldEval: B18, evalAmt: B19, sale: B21, yld: B21 ? sh * 12 / B21 : '', tasX: tas ? B21 / tas : '', cap: B23, width: B19 === 0 ? 0 : B19 - mk },
+      d: { yieldEval: D18, evalAmt: D19, sale: D21, yld: D21 ? sh * 12 / D21 : '', tasX: tas ? D21 / tas : '', cap: D23, width: D19 === 0 ? 0 : D19 - mk },
+    };
     return {
-      days, ok, rate100: ok, B18, D18, B23, D23, B19, D19, base,
+      cols, days, ok, rate100: ok, B18, D18, B23, D23, B19, D19, base,
       limit: base - num(p.offset),                                                    // D6 仕入れ上限目安
       sale: B19 === 0 ? D21 : B19,                                                    // 販売金額
       yieldSale: (B19 === 0 ? D21 : B19) ? num(p.shu || p.sub) * 12 / (B19 === 0 ? D21 : B19) : '',
