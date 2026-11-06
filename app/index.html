@@ -54,7 +54,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mut);font-size:13px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="logo.js"></script><script src="template.js"></script><script src="areas.js"></script><script src="areachars.js"></script><script src="areafind.js"></script><script src="lines.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
+<script src="logo.js"></script><script src="template.js"></script><script src="areas.js"></script><script src="areachars.js"></script><script src="areafind.js"></script><script src="lines.js"></script><script src="sbjstations.js"></script><script src="seed.js"></script><script src="seed2.js"></script><script src="iontables.js"></script><script src="calc.js"></script><script src="calc2.js"></script>
 <script>
 const KEY='axia-v2',OLD='axia-sim-v1';
 const TOOLS={sim:'楽天銀行',ion:'イオン銀行',sbj:'SBJ銀行'};
@@ -107,14 +107,14 @@ const SCHEMA={
   ['融資条件',[['price','販売価格（空欄で自動計算）',N],['deposit','手付金',N],['feeRate','諸費用率（％）',PC],['y1','融資年数①',N],['y2','融資年数②',N],['r1','金利 ①年（％）',PC],['r2','金利 ①年＋諸（％）',PC],['r3','金利 ②年（％）',PC],['r4','金利 ②年＋諸（％）',PC]]],
   ['手入力で上書き（空欄なら自動）',[['yieldOv','想定利回り（％）',N],['costOv','諸費用（円）',N],['agentOv','代行手数料（円）',N],['rentBasis','賃料の基準',SEL,['標準','中央値換算']],['feeMode','代行手数料の方式',SEL,['標準','賃料×10%']]]]],
  sbj:[
-  ['物件情報',[['name','物件名',T],['region','エリア',SEL,['東京','東京以外']],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['maisoku','マイソク価格（業者目線）',N],['tas','TAS',N]]],
+  ['物件情報',[['name','物件名',T],['region','エリア',SEL,['東京','東京以外']],['ekimei','最寄駅名（SBJ指定駅の確認）',T],['sqm','平米数',N],['built','築年月日',DT],['units','総戸数',N],['maisoku','マイソク価格（業者目線）',N],['tas','TAS',N]]],
   ['賃料・費用',[['sub','サブリース賃料',N],['shu','集金代行（実賃）',N],['mgmtFee','管理手数料',N],['mgmt','管理費',N],['repair','修繕費',N]]],
   ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]],
   ['取扱条件の確認（条件書）',[['walk10','徒歩10分以上',SEL,['いいえ','はい']],['unit3','3点ユニット',SEL,['いいえ','はい']],['washer','洗濯機置場なし・室外',SEL,['いいえ','はい']]]]]
 };
 const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',mgmtCo:'',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',station2:'',sqm:'',floorsTotal:'',floor:'',layout:UNSEL,outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
  ion:{name:'新規物件',region:'東京',ekimei:'',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02376,r2:0.0228,r3:0.02532,r4:0.02532,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
- sbj:{walk10:'いいえ',unit3:'いいえ',washer:'いいえ',name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
+ sbj:{ekimei:'',walk10:'いいえ',unit3:'いいえ',washer:'いいえ',name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
 
 /* ---- 画面 ---- */
 function head(){
@@ -136,10 +136,13 @@ function renderProp(){const p=getP();const g=SCHEMA[S.tool];
   document.querySelectorAll('[data-k]').forEach(e=>e.addEventListener('change',()=>{ if(e.tagName==='SELECT'){p[e.dataset.k]=e.value;if(e.dataset.k==='region'&&S.tool==='ion'){p.area=(AREAS[p.region]||[''])[0];ionAutoArea(p)}renderProp();head();save();} }));
   document.querySelectorAll('[data-k]').forEach(e=>{if(e.tagName==='INPUT')e.addEventListener('input',()=>{p[e.dataset.k]=e.type==='number'&&e.value!==''?(e.dataset.pct?Number(e.value)/100:Number(e.value)):e.value;
     if(e.dataset.k==='name'){const b=document.querySelector(`#tabs [data-id="${p.id}"]`);if(b)b.textContent=p.name||'(無題)'}
+    if(S.tool==='sbj'&&e.dataset.k==='ekimei')sbjNote(p);
     if(S.tool==='ion'&&e.dataset.k==='ekimei'){const r=ionAutoArea(p);const sel=document.querySelector('[data-k=area]');if(sel&&r.area)sel.value=p.area;areaNote(p)}
     upd();save()})});
   if(S.tool==='ion'){const sel=document.querySelector('[data-k=area]');if(sel){sel.closest('label').insertAdjacentHTML('afterend','<div class="note" id="areanote" style="margin:0 0 6px"></div><div id="stbox" style="margin:0 0 8px"></div>');
     document.getElementById('main').insertAdjacentHTML('beforeend','<datalist id="stlist"></datalist>');areaNote(p)}}
+  if(S.tool==='sbj'){const inp=document.querySelector('[data-k=ekimei]');if(inp){inp.closest('label').insertAdjacentHTML('afterend','<div class="note" id="sbnote" style="margin:0 0 6px"></div><div id="sbbox" style="margin:0 0 8px"></div>');
+    document.getElementById('main').insertAdjacentHTML('beforeend','<datalist id="stlist"></datalist>');sbjNote(p)}}
   document.getElementById('msf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)msRead(f)};
   upd()}
 function areaNote(p){const e=document.getElementById('areanote');if(!e)return;const r=ionAreaOf(p);let h='';
@@ -205,6 +208,7 @@ const RES={
   if(yrs!=null&&yrs>=30)add('ng','築30年以上は取扱不可');else if(yrs!=null&&yrs>=25)add('warn','築25年以上は90%融資');
   else if(yrs!=null&&yrs>=20)add('warn','築20〜25年：条件書では築20年以上は90%融資ですが、シートの式は築25年未満を100%としています。どちらで扱うか確認してください');
   if(un&&un<20)add('warn','総戸数20戸未満は90%融資');else if(un===20)add('warn','総戸数20戸ちょうど：条件書は「20戸以下→90%」、シートの式は20戸以上を100%としています');
+  {const st=sbjStation(p.ekimei);if(st){if(st.state==='red')add('ok','最寄駅「'+p.ekimei+'」はSBJの赤字駅（90%超対象）です');else if(st.state==='black')add('warn','最寄駅「'+p.ekimei+'」は一覧にありますが赤字ではありません（90%融資の可能性）');else add('warn','最寄駅「'+p.ekimei+'」は登録済みの一覧に見つかりません。PDFで確認してください')}else add('warn','最寄駅が未入力です（SBJの指定駅か確認できません）')}
   if(p.walk10==='はい')add('ng','徒歩10分以上は原則取扱不可');
   if(p.unit3==='はい')add('ng','3点ユニットは取扱不可');
   if(p.washer==='はい')add('ng','洗濯機置場なし・室外は取扱不可');
@@ -220,7 +224,7 @@ const RES={
    <tr><td>返済額（金利${PCT(Number(p.rate)||0,3)}・35年）</td><td>${F(r.repay)}</td></tr>
    <tr><td>収支</td><td class="${cls(inc)}"><span class="big">${F(inc)}</span> ${pl[band[0]]} <span class="note" style="margin:0">${band[1]}</span></td></tr>
    <tr><td>仕入れ上限目安（評価−${F(p.offset)}円）</td><td>${F(r.limit)}</td></tr></tbody></table>
-  <h2 class="sub">取扱条件の確認</h2>${chk.length?chk.map(([lv,t])=>`<div style="margin:4px 0">${pl[lv]} ${esc(t)}</div>`).join(''):'<div>条件書に反する項目はありません</div>'}
+  <h2 class="sub">取扱条件の確認</h2>${chk.map(([lv,t])=>`<div style="margin:4px 0">${pl[lv]} ${esc(t)}</div>`).join('')}
   <div class="note">基準利回りは条件書で東京4%以上、大阪・京都・兵庫4.5%以上です（シートの注記は版により3.7%・4%・4.2%）。収支の目安はシートの色分け（−6,000円より上／−8,000円以下）に合わせています。</div>`}
 };
 
@@ -557,6 +561,25 @@ function sbjCopy(){const t=document.getElementById('sbmail'),m=document.getEleme
   (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>m.textContent='メール文をコピーしました',()=>m.textContent='選択済みです。コピー操作をしてください')}
 function sbjMail(){const ids=selIds(),n=ids.length?ids.length:L().length;
   document.getElementById('cfm').innerHTML=`<div class="card" style="margin-bottom:16px"><h2>SBJ銀行へのメール文（${n}件）</h2>${sbjMailHTML(n)}<div class="note">チェックした物件の件数（未選択なら全件）が「物件○件」に入ります。</div><div class="bar"><button onclick="document.getElementById('cfm').innerHTML=''">閉じる</button></div></div>`}
+/* ---- SBJ銀行：最寄駅の選択と指定駅の確認 ---- */
+function sbjStation(name){const k=nkSt(name);if(!k)return null;const hit=[];
+  for(const l of window.SBJ_LINES||[])for(const [n,r] of l.st)if(nkSt(n)===k)hit.push({line:l.name,op:l.op,red:r});
+  if(!hit.length)return {state:'none',hit};
+  return {state:hit.some(h=>h.red)?'red':'black',hit}}
+function sbjNote(p){const e=document.getElementById('sbnote');if(!e)return;const r=sbjStation(p.ekimei);let h='';
+  if(!p.ekimei)h='<span class="note" style="margin:0">駅名を入れる（または下の路線から選ぶ）と、SBJの指定駅かどうかが出ます</span>';
+  else if(r.state==='red')h=`駅「${esc(p.ekimei)}」→ <b style="color:var(--neg)">赤字（90%超対象）</b>　${esc([...new Set(r.hit.filter(x=>x.red).map(x=>x.line))].join('・'))}`;
+  else if(r.state==='black')h=`駅「${esc(p.ekimei)}」→ 一覧にありますが赤字ではありません（90%融資の可能性）`;
+  else h=`<span class="err">駅「${esc(p.ekimei)}」は登録済みの一覧に見つかりません。未登録の路線か、対象外の可能性があります。PDFで確認してください</span>`;
+  e.innerHTML=h;sbjBox(p)}
+function sbjBox(p){const box=document.getElementById('sbbox');if(!box)return;const LN=window.SBJ_LINES||[];
+  const cur=LN.find(l=>l.op+'/'+l.name===S.sbLine)||LN[0];const ops=[...new Set(LN.map(l=>l.op))];
+  box.innerHTML=`<div class="bar" style="margin:0"><b style="font-size:13px">駅を選ぶ（路線別）</b></div>
+   <select style="width:100%;max-width:none;margin:6px 0 0;text-align:left" onchange="S.sbLine=this.value;save();sbjBox(getP())">${ops.map(o=>`<optgroup label="${o}">${LN.filter(l=>l.op===o).map(l=>`<option value="${esc(l.op+'/'+l.name)}" ${l===cur?'selected':''}>${esc(l.name)}（${esc(l.from)}→${esc(l.to)}）</option>`).join('')}</optgroup>`).join('')}</select>
+   <div class="note" style="margin:4px 0 0">赤字の駅は90%超対象。黒字は一覧にある駅（赤字ではない）。登録済み：${esc(window.SBJ_LINES_DONE||'')}。それ以外の路線は未登録です</div>
+   <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-height:120px;overflow-y:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg)">${cur.st.map(([n,r])=>`<button class="stc" style="${r?'color:var(--neg);border-color:var(--neg);font-weight:600':''}" onclick="sbjSt('${n}')">${n}</button>`).join('')}</div>`;
+  const dl=document.getElementById('stlist');if(dl)dl.innerHTML=[...new Set(LN.flatMap(l=>l.st.map(x=>x[0])))].map(k=>'<option value="'+k+'">').join('')}
+function sbjSt(name){const p=getP();p.ekimei=name;const i=document.querySelector('[data-k=ekimei]');if(i)i.value=name;sbjNote(p);upd();save()}
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
