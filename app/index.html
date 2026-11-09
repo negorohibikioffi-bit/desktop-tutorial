@@ -454,6 +454,10 @@ async function mkSet(slot,file){const p=L().find(x=>x.id===MK.pid);if(!p)return;
     if(SYNC.col)SYNC.col.doc('img_'+key).set({data:u}).catch(()=>{m.textContent='画像の同期に失敗しました（この画面では使えます）'})}
   catch(e){m.textContent='画像を読み込めませんでした'}}
 function mkDel(slot){const key=MK.pid+'_'+slot;delete IMG[key];if(SYNC.col)SYNC.col.doc('img_'+key).delete().catch(()=>{});mkRefresh()}
+async function mkFit(url,w,h,cover){const im=await new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=url});
+  const cv=document.createElement('canvas');cv.width=w*2;cv.height=h*2;const c=cv.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,cv.width,cv.height);
+  if(im){const k=(cover?Math.max:Math.min)(cv.width/im.naturalWidth,cv.height/im.naturalHeight),dw=im.naturalWidth*k,dh=im.naturalHeight*k;c.drawImage(im,(cv.width-dw)/2,(cv.height-dh)/2,dw,dh)}
+  return cv.toDataURL('image/jpeg',0.88)}
 const imgDims=u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.naturalWidth,i.naturalHeight]);i.onerror=()=>r([1,1]);i.src=u});
 async function mkExcel(p){
   const d=mkData(p),c=mkCo(),wb=new ExcelJS.Workbook();
@@ -479,9 +483,10 @@ async function mkExcel(p){
     if(si)bd(r0,X,r0,V2,'t','medium');r+=n});
   bd(6,X,30,V2,'box','medium');
   // 画像
-  const slotBox={photo:[28,106,372,556],plan:[400,106,341,300],map:[400,414,341,248]};
-  for(const s of ['photo','plan','map']){const u=IMG[p.id+'_'+s];if(!u)continue;const [x,y,w,h]=slotBox[s],[iw,ih]=await imgDims(u),k=Math.min(w/iw,h/ih),dw=iw*k,dh=ih*k;
-    const id=wb.addImage({base64:u.split(',')[1],extension:'jpeg'});ws.addImage(id,{tl:{col:(x+(w-dw)/2-28)/31+1,row:(y+(h-dh)/2)/22},ext:{width:dw,height:dh}})}
+  const slotBox={photo:[28,106,356,556],plan:[400,106,322,300],map:[400,414,322,248]};   // 表の列と重ならないよう、画面よりわずかに小さくしている
+  for(const s of ['photo','plan','map']){const u=IMG[p.id+'_'+s];if(!u)continue;const [x,y,w,h]=slotBox[s];
+    const fit=await mkFit(u,w,h,s!=='plan');                                          // 枠と同じ大きさに整えてから貼る（写真・地図は中央を切り取り、間取り図は余白つき）
+    const id=wb.addImage({base64:fit.split(',')[1],extension:'jpeg'});ws.addImage(id,{tl:{col:(x-28)/31+1,row:y/22},ext:{width:w,height:h},editAs:'oneCell'})}
   // フッター
   bd(32,2,32,35,'t','mediumDashed');
   put(33,2,34,13,c.license+(d.trade?'　取引態様：'+d.trade:''),{h:'left',v:'bottom',size:10});put(35,2,35,13,c.name,{bold:true,size:16,h:'left'});
