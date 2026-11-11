@@ -329,7 +329,7 @@ function App(){
       existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
       ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
       rk:{living:rkLiving,a:rkA,homeM:rkHomeM,b:rkB,c:rkC,d:rkD,e:rkE,f:rkF,monthly:rkMonthly,repay:rkRepay,origMissing:rkOrigMissing,margin:rkMargin,pass:rkMargin>0},
-      sbj:{fam:sbjFam,famN,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,rPass:sbjRatio<0.5,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjRatio<0.5&&sbjDisp>=1000000},
+      sbj:{fam:sbjFam,famN,ym:sbjYM,bm:10,mPass:sbjYM<10,a1:sbjA1,b:sbjB,ratio:sbjRatio,rPass:sbjRatio<0.5,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<10&&sbjRatio<0.5&&sbjDisp>=1000000},
       ion:{ap:ionAP,r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
       sbi:{ap:sbiAP,ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
       hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
@@ -524,7 +524,7 @@ function App(){
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準1：年収倍率</div>
           <RRow label="借入総額" value={`¥${fmt(calc.totalDebt)}`}/>
           <RRow label="年収" value={`¥${fmt(salary)}`}/>
-          <RRow label="年収倍率" value={`${fmtR(calc.sbj.ym)}倍`} sub={calc.sbj.mPass?"（12倍未満）":"（12倍以上）"}/>
+          <RRow label="年収倍率" value={`${fmtR(calc.sbj.ym)}倍`} sub={calc.sbj.mPass?"（10倍未満）":"（10倍以上）"}/>
           <Badge pass={calc.sbj.mPass}/>
         </div>
         <div style={sCard}>
