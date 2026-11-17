@@ -27,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* PC: サイドバー */}
       <aside className="sticky top-0 hidden h-dvh flex-col gap-1 border-r border-line bg-[color-mix(in_oklab,var(--bg)_70%,transparent)] p-4 backdrop-blur-xl md:flex">
         <Link href="/" className="mb-6 flex items-center gap-2.5 px-2 py-2">
-          <span className="grad-bg grid size-9 place-items-center rounded-xl text-lg kanji-glyph">響</span>
+          <img src="/icons/logo-96.png" alt="" width={36} height={36} className="size-9 rounded-[10px]" />
           <span className="text-lg font-bold tracking-tight">{APP_NAME}</span>
         </Link>
         {[...NAV, ...SUB].map((n) => {
@@ -49,7 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-col">
         {/* スマホ: ヘッダー */}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between px-4 md:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-          <Link href="/" className="flex items-center gap-2"><span className="grad-bg grid size-8 place-items-center rounded-lg kanji-glyph">響</span><span className="font-bold">{APP_NAME}</span></Link>
+          <Link href="/" className="flex items-center gap-2"><img src="/icons/logo-96.png" alt="" width={32} height={32} className="size-8 rounded-lg" /><span className="font-bold">{APP_NAME}</span></Link>
           <div className="flex gap-1">{SUB.map((n) => <Link key={n.href} href={n.href} aria-label={n.label} className={cx("grid size-10 place-items-center rounded-xl", active(path, n.href) ? "text-accent" : "text-text2")}><n.icon className="size-5" /></Link>)}</div>
         </header>
         <main className="mx-auto w-full max-w-4xl flex-1 px-4 pb-32 pt-2 md:px-10 md:pb-16 md:pt-10">{children}</main>

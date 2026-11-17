@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "漢字検索・不動産用語辞典・韓国語翻訳学習をひとつに統合したパーソナル辞書アプリ。",
   applicationName: APP_NAME,
   appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: "black-translucent" },
-  icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
+  icons: { icon: [{ url: "/icons/favicon-64.png", sizes: "64x64", type: "image/png" }], apple: "/icons/apple-touch-icon.png" },
 };
 export const viewport: Viewport = { themeColor: "#08080d", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
