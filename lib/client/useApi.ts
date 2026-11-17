@@ -45,3 +45,9 @@ export function useQueryParam() {
   const submit = useCallback((v?: string) => { const val = (v ?? input).trim(); setInput(val); router.push(val ? `${path}?q=${encodeURIComponent(val)}` : path, { scroll: false }); }, [input, path, router]);
   return { q, input, setInput, submit };
 }
+
+/** サーバー機能の有効状態（AIキー有無など）。無料運用ではai=falseが通常。 */
+export function useServerStatus() {
+  const { data } = useApi<{ ai: boolean; supabase: boolean }>("/api/status");
+  return data ?? { ai: false, supabase: false };
+}

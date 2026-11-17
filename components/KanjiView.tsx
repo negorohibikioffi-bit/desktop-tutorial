@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Wand2, SearchX, ChevronRight } from "lucide-react";
 import { SearchBar, CopyButton, FavButton, Badge, Notice, Skeletons, Empty, Sheet, Chip } from "./ui";
-import { useApi, useQueryParam } from "@/lib/client/useApi";
+import { useApi, useQueryParam, useServerStatus } from "@/lib/client/useApi";
 import { addHistory } from "@/lib/client/store";
 import { POPULAR_RADICALS } from "@/lib/kanji/radicals";
 import type { KanjiRecord, ParsedQuery } from "@/lib/kanji/search";
@@ -16,6 +16,7 @@ const clean = (r: string) => r.replace(/[-]/g, "").replace(".", "（") + (r.incl
 
 export default function KanjiView() {
   const { q, input, setInput, submit } = useQueryParam();
+  const status = useServerStatus();
   const [wantAI, setWantAI] = useState(false);
   const [open, setOpen] = useState<Hit | null>(null);
   useEffect(() => setWantAI(false), [q]);
@@ -67,10 +68,10 @@ export default function KanjiView() {
       )}
 
       {base.data && confirmed.length === 0 && q && !base.loading && (
-        <Empty icon={<SearchX className="size-6" />} title="辞書データに該当する漢字が見つかりません" body="別の言い方（部首名や読み）でも試せます。AIに推測してもらうこともできます（結果は確定情報と区別して表示します）。" />
+        <Empty icon={<SearchX className="size-6" />} title="辞書データに該当する漢字が見つかりません" body="別の言い方（部首名や読み、例:「さんずい」「せい」）でも試してみてください。" />
       )}
 
-      {base.data && q && (
+      {base.data && q && status.ai && (
         <div className="grid gap-3">
           {!wantAI && <button onClick={() => setWantAI(true)} className="card flex items-center gap-3 p-4 text-left transition active:scale-[.99]"><span className="grad-bg grid size-10 place-items-center rounded-xl"><Wand2 className="size-5" /></span><span className="flex-1"><span className="block font-semibold">AIでもっと探す</span><span className="block text-sm text-text3">曖昧な説明を解釈して候補を提案します</span></span><ChevronRight className="size-5 text-text3" /></button>}
           {wantAI && ai.loading && <Skeletons n={1} h={90} />}
@@ -84,7 +85,7 @@ export default function KanjiView() {
         </div>
       )}
 
-      <KanjiDetail hit={open} onClose={() => setOpen(null)} onSearch={(s) => { setOpen(null); submit(s); }} />
+      <KanjiDetail aiOn={status.ai} hit={open} onClose={() => setOpen(null)} onSearch={(s) => { setOpen(null); submit(s); }} />
     </div>
   );
 }
@@ -103,7 +104,7 @@ function KanjiCard({ hit, i, ai, onOpen }: { hit: Hit; i: number; ai?: boolean; 
   );
 }
 
-function KanjiDetail({ hit, onClose, onSearch }: { hit: Hit | null; onClose: () => void; onSearch: (q: string) => void }) {
+function KanjiDetail({ aiOn, hit, onClose, onSearch }: { aiOn: boolean; hit: Hit | null; onClose: () => void; onSearch: (q: string) => void }) {
   const [ex, setEx] = useState<{ meaning: string; examples: string[] } | null>(null);
   const [exErr, setExErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -134,7 +135,7 @@ function KanjiDetail({ hit, onClose, onSearch }: { hit: Hit | null; onClose: () 
           </dl>
           {ex ? (
             <div className="rounded-2xl border border-line bg-surface2 p-4 text-sm"><div className="mb-1 flex items-center gap-2"><Badge tone="ai">AI解説</Badge></div><p className="leading-relaxed">{ex.meaning}</p>{ex.examples?.length > 0 && <p className="mt-2 text-text2">熟語: {ex.examples.join("、")}</p>}</div>
-          ) : (
+          ) : !aiOn ? null : (
             <div className="grid gap-2"><button onClick={explain} disabled={loading} className="flex items-center justify-center gap-2 rounded-xl border border-line bg-surface2 py-3 text-sm font-semibold transition active:scale-[.98] disabled:opacity-60"><Sparkles className="size-4 text-accent2" />{loading ? "取得中…" : "日本語の意味・熟語をAIで見る"}</button>{exErr && <p className="text-xs text-text3">{exErr}</p>}</div>
           )}
           {parts.length > 0 && (

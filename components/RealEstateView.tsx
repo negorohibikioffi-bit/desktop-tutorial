@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, GitCompareArrows, ExternalLink, Sparkles, SearchX, Scale } from "lucide-react";
 import { SearchBar, CopyButton, FavButton, Badge, Notice, Skeletons, Empty, Chip, cx } from "./ui";
-import { useApi, useQueryParam, postJSON } from "@/lib/client/useApi";
+import { useApi, useQueryParam, postJSON, useServerStatus } from "@/lib/client/useApi";
 import { addHistory } from "@/lib/client/store";
 import type { Term, Comparison } from "@/lib/realestate/types";
 
@@ -65,13 +65,14 @@ export default function RealEstateView() {
 }
 
 function NotFound({ q }: { q: string }) {
+  const aiOn = useServerStatus().ai;
   const [state, setState] = useState<{ loading: boolean; data?: AiTerm; error?: string; code?: string }>({ loading: false });
   useEffect(() => setState({ loading: false }), [q]);
   async function ask() { setState({ loading: true }); const r = await postJSON<AiTerm>("/api/realestate/ai", { q }); setState({ loading: false, data: r.data, error: r.error, code: r.code }); }
   return (
     <div className="grid gap-3">
-      <Empty icon={<SearchX className="size-6" />} title="辞書に該当する用語がありません" body="表記ゆれの可能性があります。別の言い方でも試すか、AIに解説を依頼できます（AI生成は確認済み情報と区別して表示します）。" />
-      {!state.data && <button onClick={ask} disabled={state.loading} className="card flex items-center justify-center gap-2 p-4 font-semibold disabled:opacity-60"><Sparkles className="size-4 text-accent2" />{state.loading ? "AIが解説を作成中…" : `「${q}」をAIで解説する`}</button>}
+      <Empty icon={<SearchX className="size-6" />} title="辞書に該当する用語がありません" body="表記ゆれの可能性があります。別の言い方（略称・正式名称）でも試してください。" />
+      {aiOn && !state.data && <button onClick={ask} disabled={state.loading} className="card flex items-center justify-center gap-2 p-4 font-semibold disabled:opacity-60"><Sparkles className="size-4 text-accent2" />{state.loading ? "AIが解説を作成中…" : `「${q}」をAIで解説する`}</button>}
       {state.error && <Notice tone={state.code === "ai_no_key" ? "info" : "error"}>{state.code === "ai_no_key" ? "AI解説はまだ設定されていません（サーバーにAPIキーが必要です）。" : state.error}</Notice>}
       {state.data && (state.data.known === false
         ? <Notice>AIは「{q}」を不動産用語として確認できませんでした。表記を確認してください。</Notice>
@@ -134,6 +135,7 @@ function TermCard({ term, defaultOpen, onSearch, inTray, onTray }: { term: TermH
 const Block = ({ title, children }: { title: string; children: React.ReactNode }) => <section><h4 className="mb-1.5 text-xs font-semibold tracking-wide text-text3">{title}</h4>{children}</section>;
 
 function CompareCard({ cmp, onSearch }: { cmp: Cmp; onSearch: (q: string) => void }) {
+  const aiOn = useServerStatus().ai;
   const [ai, setAi] = useState<{ loading: boolean; data?: AiCmp; error?: string; code?: string }>({ loading: false });
   const an = cmp.a.name.split("（")[0], bn = cmp.b.name.split("（")[0];
   useEffect(() => setAi({ loading: false }), [cmp.a.id, cmp.b.id]);
@@ -152,7 +154,8 @@ function CompareCard({ cmp, onSearch }: { cmp: Cmp; onSearch: (q: string) => voi
           <tbody>{rows.map((r, i) => <tr key={i} className="align-top"><th className="border-t border-line py-3 pr-3 text-left font-medium text-text3">{r.label}</th><td className="border-t border-line py-3 pr-3 leading-relaxed">{r.a}</td><td className="border-t border-line py-3 leading-relaxed">{r.b}</td></tr>)}</tbody>
         </table></div>
       )}
-      {!data && !aiData && (
+      {!data && !aiData && !aiOn && <Notice tone="info">この組み合わせの比較表は未作成です。それぞれの詳細は下のボタンから確認できます。</Notice>}
+      {!data && !aiData && aiOn && (
         <div className="grid gap-2"><p className="text-sm text-text2">この組み合わせの比較表は未作成です。AIで比較表を作れます（確認済み情報とは区別して表示）。</p>
           <button onClick={ask} disabled={ai.loading} className="grad-bg rounded-xl py-3 font-semibold disabled:opacity-60">{ai.loading ? "AIが作成中…" : "AIで比較表を作る"}</button>
           {ai.error && <Notice tone={ai.code === "ai_no_key" ? "info" : "error"}>{ai.code === "ai_no_key" ? "AIが未設定です（サーバーにAPIキーが必要です）。" : ai.error}</Notice>}</div>

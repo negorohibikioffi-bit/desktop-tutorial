@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Volume2, Square, Turtle, Repeat, Sparkles, SearchX, Info } from "lucide-react";
 import { SearchBar, CopyButton, FavButton, Badge, Notice, Skeletons, Empty, Chip, Segmented, cx } from "./ui";
-import { useApi, useQueryParam, postJSON } from "@/lib/client/useApi";
+import { useApi, useQueryParam, postJSON, useServerStatus } from "@/lib/client/useApi";
 import { addHistory } from "@/lib/client/store";
 import { speak, stopSpeak, ttsSupported, koreanVoices } from "@/lib/client/tts";
 import type { Phrase, Form, Slang } from "@/lib/korean/types";
@@ -15,6 +15,7 @@ const RISK_TONE = { "なし": "ok", "やや注意": "warn", "要注意（粗い�
 
 export default function KoreanView() {
   const { q, input, setInput, submit } = useQueryParam();
+  const aiOn = useServerStatus().ai;
   const base = useApi<{ hits: (Phrase & { score: number })[]; aiAvailable: boolean }>(q ? `/api/korean?q=${encodeURIComponent(q)}` : null);
   const [ai, setAi] = useState<{ loading: boolean; hit?: Phrase; error?: string; code?: string }>({ loading: false });
   useEffect(() => setAi({ loading: false }), [q]);
@@ -36,8 +37,8 @@ export default function KoreanView() {
       {hits.map((p, i) => <PhraseCard key={p.id} phrase={p} defaultOpen={i === 0} q={q} />)}
       {base.data && hits.length === 0 && q && (
         <div className="grid gap-3">
-          <Empty icon={<SearchX className="size-6" />} title="辞書に近い表現がありません" body="AIで翻訳できます。AIの結果は「AI生成」と明示し、スラングは実使用の確認ができているものだけを載せるよう指示しています。" />
-          {!ai.hit && <button onClick={askAI} disabled={ai.loading} className="card flex items-center justify-center gap-2 p-4 font-semibold disabled:opacity-60"><Sparkles className="size-4 text-accent2" />{ai.loading ? "AIが翻訳中…" : `「${q}」をAIで翻訳する`}</button>}
+          <Empty icon={<SearchX className="size-6" />} title="辞書に近い表現がありません" body="別の言い方（短い口語表現）でお試しください。収録フレーズは順次追加していきます。" />
+          {aiOn && !ai.hit && <button onClick={askAI} disabled={ai.loading} className="card flex items-center justify-center gap-2 p-4 font-semibold disabled:opacity-60"><Sparkles className="size-4 text-accent2" />{ai.loading ? "AIが翻訳中…" : `「${q}」をAIで翻訳する`}</button>}
           {ai.error && <Notice tone={ai.code === "ai_no_key" ? "info" : "error"}>{ai.code === "ai_no_key" ? "AI翻訳はまだ設定されていません（サーバーにAPIキーが必要です）。" : ai.error}</Notice>}
           {ai.hit && <PhraseCard phrase={ai.hit} defaultOpen q={q} />}
         </div>
