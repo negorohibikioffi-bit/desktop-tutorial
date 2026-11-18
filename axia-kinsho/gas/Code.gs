@@ -10,7 +10,7 @@
 
 // ★ここだけ自分の環境に合わせて書き換える
 const CONFIG = {
-  ENDPOINT: 'https://（プロジェクトID）.supabase.co/functions/v1/mail-ingest'   // ★自分の Project URL に書き換える,
+  ENDPOINT: 'https://kufcrnopolzebfogdugq.supabase.co/functions/v1/mail-ingest',
   // 拾うメールの検索条件（Gmail の検索窓に入れるのと同じ書き方）。広すぎる＝AIに送る量が増える
   QUERY: 'in:anywhere -in:spam -in:trash -from:me newer_than:2d ' +
     '(from:(support@cloudsign.jp OR noreply@gmosign.com OR gatestokyo.co.jp) ' +
