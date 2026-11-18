@@ -2109,7 +2109,7 @@ function SettingsScreen({
       width: '100%',
       borderStyle: 'dashed'
     }
-  }, "\uFF0B \u9805\u76EE\u3092\u8FFD\u52A0")), React.createElement(Sec, {
+  }, "\uFF0B \u9805\u76EE\u3092\u8FFD\u52A0")), !!onLogout && React.createElement(Sec, {
     title: "\u30A2\u30AB\u30A6\u30F3\u30C8"
   }, React.createElement("div", {
     style: {
@@ -3392,6 +3392,7 @@ function LoginScreen() {
   }, busy ? 'ログイン中…' : 'ログイン')));
 }
 function Root() {
+  if (!CFG.requireLogin) return React.createElement(App, null);
   const [session, setSession] = useState(undefined);
   useEffect(() => {
     sb.auth.getSession().then(({

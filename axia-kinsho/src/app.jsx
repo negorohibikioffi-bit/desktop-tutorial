@@ -931,10 +931,10 @@ function SettingsScreen({ settings, onSave, onClose, email, onLogout }) {
           <button onClick={addF} style={{ ...subBtn, width: '100%', borderStyle: 'dashed' }}>＋ 項目を追加</button>
         </Sec>
 
-        <Sec title="アカウント">
+        {!!onLogout && <Sec title="アカウント">
           <div style={{ fontSize: 12.5, color: SUBTXT, margin: '6px 0 10px', wordBreak: 'break-all' }}>ログイン中：{email || '（不明）'}</div>
           <button onClick={() => { if (confirm('ログアウトする？')) onLogout(); }} style={{ ...subBtn, width: '100%', color: '#ff7b72', borderColor: '#5a2d31' }}>ログアウト</button>
-        </Sec>
+        </Sec>}
       </div>
 
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(transparent,#0d1017 35%)' }}>
@@ -1683,6 +1683,8 @@ function LoginScreen() {
 }
 
 function Root() {
+  // ログインは config.js の requireLogin が true のときだけ（初期値はオフ＝ログインなし）
+  if (!CFG.requireLogin) return <App />;
   const [session, setSession] = useState(undefined);   // undefined＝確認中 ／ null＝未ログイン
   useEffect(() => {
     sb.auth.getSession().then(({ data }) => setSession(data.session || null));

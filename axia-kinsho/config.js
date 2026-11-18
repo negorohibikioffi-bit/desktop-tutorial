@@ -4,4 +4,6 @@
 window.KINSHO_CONFIG = {
   supabaseUrl: 'https://kufcrnopolzebfogdugq.supabase.co',
   supabaseAnonKey: 'sb_publishable_7gjW5XkX-HQNgS95vJuMSA_Rk2zdCLD',
+  // ログイン画面を使うか（true にすると、メール＋パスワードでログインした人だけが使える。README 手順1.5・003_auth.sql が必要）
+  requireLogin: false,
 };

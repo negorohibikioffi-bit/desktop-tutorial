@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
 
   // 履歴の1行を書く。1通のメールに物件が複数あるときは、2件目以降の message_id に「#2」「#3」を付けて別行にする
   const logFor = (i: number) => async (row: Record<string, unknown>) => {
-    const { error } = await db.from('axia_kinsho_mail_log').insert({ message_id: i === 0 ? messageId : `${messageId}#${i + 1}`, from_addr: from, subject, ...row });
+    const { error } = await db.from('axia_kinsho_mail_log').insert({ message_id: i === 0 ? messageId : `${messageId}#${i + 1}`, from_addr: null, subject, ...row });
     if (error && error.code !== '23505') throw new Error('log insert: ' + error.message);   // 23505＝同時実行で先に入った
   };
   type LogFn = (row: Record<string, unknown>) => Promise<void>;
