@@ -34,3 +34,37 @@ assert.equal(identityHits(row, D, '佐藤様の件'), 0);
 assert.equal(jstToday(new Date('2026-11-17T16:00:00Z')).iso, '2026-11-18');   // UTC夕方＝JST翌日
 assert.deepEqual(monthRange(new Date('2026-11-18T00:00:00Z')), { from: '2026-10', to: '2027-02' });
 console.log('logic tests: all passed');
+
+// ---- ルール読み取り（実際に届いていたメールの型で確認）----
+import { pickRow, ruleExtract } from './logic.ts';
+const D2: any = [
+  { key: 'bukken', label: '物件名', type: 'text' }, { key: 'room', label: '号室', type: 'text' },
+  { key: 'keiyaku', label: '契約日', type: 'datetime' }, { key: 'kessai', label: '決済日', type: 'date' },
+];
+const rows = [
+  { id: 1, name: '山田 太郎', fields: { bukken: 'ライズ中野松ヶ丘', room: '207' } },
+  { id: 2, name: '佐藤 花子', fields: { bukken: 'エスリード名城公園', room: '1504' } },
+  { id: 3, name: '鈴木 一郎', fields: { bukken: 'アゼスト亀有', room: '1104' } },
+];
+// クラウドサイン：売買契約書 → 契約日＝受信日
+let x: any = ruleExtract({ from: 'クラウドサイン <support@cloudsign.jp>', subject: '「ライズ中野松ヶ丘207　【BC】売買契約書」の合意締結が完了しました', body: '', dateIso: '2026-11-06' }, D2);
+assert.deepEqual(x.updates, [{ key: 'keiyaku', date: '2026-11-06' }]);
+let pk = pickRow(rows, D2, x.propertyText); assert.equal(pk.row!.id, 1); assert.equal(pk.hits, 2); assert.equal(pk.unique, true);
+// GMOサイン：取引完了確認書 → 対象外
+x = ruleExtract({ from: 'noreply@gmosign.com', subject: '電子署名完了のお知らせ（アゼスト亀有1104【BC】取引完了確認書※電子）', body: '', dateIso: '2026-11-09' }, D2);
+assert.equal(x.relevant, false);
+// GMOサイン：管理委託契約書 → 対象外（契約日に入れない）
+x = ruleExtract({ from: 'noreply@gmosign.com', subject: '電子署名完了のお知らせ（管理委託契約書　インベスト京都修学院202号室）', body: '', dateIso: '2026-11-17' }, D2);
+assert.equal(x.relevant, false);
+// GATES：決済日の確定
+x = ruleExtract({ from: 'a.yamashita@gatestokyo.co.jp', subject: 'RE: 訂正版 エスリード名城公園 1504号室の決済日について', body: '【エスリード名城公園1504】を【2026年11月30日】にて決済お受けいたしました。', dateIso: '2026-11-18' }, D2);
+assert.deepEqual(x.updates, [{ key: 'kessai', date: '2026-11-30' }]);
+pk = pickRow(rows, D2, x.propertyText); assert.equal(pk.row!.id, 2); assert.equal(pk.hits >= 2, true);
+// 決済日の項目が無い設定 → 反映せず理由だけ
+x = ruleExtract({ from: 'a@gatestokyo.co.jp', subject: '決済', body: '【物件】を【2026年11月30日】にて決済お受けいたしました', dateIso: '2026-11-18' }, D2.filter((f: any) => f.key !== 'kessai'));
+assert.deepEqual(x.updates, []);
+// 営業メール → ルール対象外(null)
+assert.equal(ruleExtract({ from: 'x@openhouse-group.com', subject: '今一番いい物件送ります', body: '決済は…', dateIso: '2026-11-18' }, D2), null);
+// 候補日の相談など（確定ではない）→ null
+assert.equal(ruleExtract({ from: 'x@bank.jp', subject: '決済日のご相談', body: '11月30日か12月2日で決済をお願いできますか', dateIso: '2026-11-18' }, D2), null);
+console.log('rule tests: all passed');
