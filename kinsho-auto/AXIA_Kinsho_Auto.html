@@ -52,6 +52,11 @@
   #root [data-sticky-bar] input { border:2px solid #fff !important; background:#111 !important; border-radius:2px !important; }
   .p5-card { border:2px solid var(--p5black) !important; border-radius:2px !important; box-shadow:5px 5px 0 var(--p5red) !important; }
   .p5-card > div:first-child { border-radius:0 !important; }
+  /* オープンになった物件: 全体に斜線＋取り消し線＋うすく表示 */
+  .p5-open { position:relative; opacity:.62; background-image:repeating-linear-gradient(135deg, rgba(0,0,0,.05) 0 6px, transparent 6px 12px) !important; }
+  .p5-open::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:6;
+    background:linear-gradient(to top right, transparent calc(50% - 2px), var(--p5red) calc(50% - 2px) calc(50% + 2px), transparent calc(50% + 2px)); }
+  .p5-open > div:first-child, .p5-open > div:first-child * { text-decoration:line-through; text-decoration-thickness:2px; text-decoration-color:var(--p5red); }
   @media print { body { background:#fff !important; } [data-sticky-bar]::before { display:none; } }
   input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; color:#1e2a4a; color-scheme: light; }
 </style>
@@ -439,7 +444,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
   return (
-    <div className="p5-card" style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
+    <div className={'p5-card' + (/（オープン）/.test(r.name || '') ? ' p5-open' : '')} style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
       <div ref={headRef} onClick={toggle} style={{ padding: open ? '10px 14px' : '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
         // 開いとる間は「物件名 ／ 名前」の1行だけを紺色ヘッダーのすぐ下に固定して、入力欄が見える範囲を広く取る
         ...(open ? { position: 'sticky', top: 'var(--barH, 0px)', zIndex: 5, background: '#fff', borderRadius: '12px 12px 0 0', borderBottom: `1px solid ${LINE}`, boxShadow: '0 4px 8px -6px rgba(30,42,74,.25)' } : {}) }}>
