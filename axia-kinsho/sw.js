@@ -4,11 +4,11 @@
  * - Supabase（データ通信）は一切キャッシュしない：古い案件を見せんため。
  * - Googleフォントは「キャッシュ優先」で裏で更新。
  */
-const VER = 'kinsho-v14.0.0';
+const VER = 'kinsho-v14.0.1';
 const SHELL = [
   './', 'index.html', 'app.js?v=14.0.0', 'manifest.webmanifest',
   'vendor/react.production.min.js', 'vendor/react-dom.production.min.js',
-  'vendor/supabase.js', 'vendor/591.supabase.js', 'config.js',
+  'vendor/supabase.js', 'config.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png', 'icons/favicon.png',
 ];
 
