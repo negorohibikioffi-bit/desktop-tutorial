@@ -31,6 +31,12 @@ drop policy if exists "kinsho_settings_all" on public.axia_kinsho_settings;
 create policy "kinsho_settings_all" on public.axia_kinsho_settings
   for all to anon, authenticated using (true) with check (true);
 
+-- Data API の権限（プロジェクト作成時に「自動で付与」を切っとっても動くよう、明示しとく）
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.axia_kinsho          to anon, authenticated;
+grant select, insert, update, delete on public.axia_kinsho_settings to anon, authenticated;
+grant usage, select on sequence public.axia_kinsho_id_seq to anon, authenticated;
+
 -- 最初の項目設定（アプリの ⚙ 設定画面でいつでも変えられる）
 insert into public.axia_kinsho_settings (id, settings) values (1, '{
   "appTitle": "金消予定日 一覧",
