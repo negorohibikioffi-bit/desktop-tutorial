@@ -60,3 +60,15 @@ function loadFieldKeys_() {
     rows[0].settings.fields.forEach(f => { out[f.label] = f.key; if (/金消/.test(f.label)) out.kinsho = f.key; });
   return out;
 }
+
+/**
+ * サンプル確認用。KEYWORD を変えて実行 → 「実行ログ」に件名・差出人・本文の先頭が出る。
+ * 個人情報(氏名・住所・金額)は伏せてからClaudeに貼ること。
+ */
+function sample() {
+  const KEYWORD = '金消';   // 例: 金消 / 融資 / 銀行名
+  GmailApp.search(KEYWORD + ' newer_than:30d', 0, 5).forEach(th => {
+    const m = th.getMessages()[0];
+    Logger.log('件名: ' + m.getSubject() + '\n差出人: ' + m.getFrom() + '\n--- 本文 ---\n' + m.getPlainBody().slice(0, 700) + '\n==========');
+  });
+}
