@@ -21,6 +21,7 @@ const START_DATE = '2026-11-01T00:00:00+09:00';   // この日時以降に届い
 const QUERY = '(顧客名 OR subject:申込 OR subject:物件確定 OR subject:契約 OR subject:金消 OR subject:承認 OR subject:振替 OR subject:訂正 OR subject:オープン OR subject:新規 OR subject:買い増し OR subject:買増 OR subject:他社増し)';
 const LOOKBACK_DAYS = 30;   // 初回取込用。安定したら 7 に戻してOK
 const MAX_THREADS = 100;
+const MAX_PAGES = 5;   // 最大 100×5 = 500スレッドまで検索
 const MAX_ITEMS_PER_RUN = 30;
 const OPEN_SUFFIX = '（オープン）';
 
@@ -47,8 +48,15 @@ const MAP = [
 
 // ===== Gmail API(高度なサービス)で読む =====
 function searchThreads_(query) {
-  const res = Gmail.Users.Threads.list('me', { q: query, maxResults: MAX_THREADS });
-  return (res.threads || []).map(function (th) {
+  // 100件を超える場合も取りこぼさないよう、次のページも読む(最大 MAX_PAGES ページ)
+  let all = [], token = '';
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = withRetry_(function () { return Gmail.Users.Threads.list('me', { q: query, maxResults: MAX_THREADS, pageToken: token || undefined }); });
+    all = all.concat(res.threads || []);
+    token = res.nextPageToken;
+    if (!token) break;
+  }
+  return all.map(function (th) {
     let cache = null;
     return {
       getId: function () { return th.id; },
@@ -386,7 +394,9 @@ function cleanup_(props, nowSec) {
 function dryRun() {
   const st = loadSettings_();
   Logger.log('アプリの項目: ' + (st.fields.map(function (f) { return f.label + '(' + f.type + ')'; }).join(' / ') || '（未設定: 設定画面で項目を作ってください）') + ' / 主項目キー=' + st.mainKey);
-  searchThreads_(QUERY + ' after:' + Math.floor(new Date(START_DATE).getTime() / 1000)).forEach(function (t) {
+  const th = searchThreads_(QUERY + ' after:' + Math.floor(new Date(START_DATE).getTime() / 1000));
+  Logger.log('検索で見つかったスレッド数: ' + th.length + '（' + START_DATE.slice(0, 10) + ' 以降）');
+  th.forEach(function (t) {
     t.getMessages().forEach(function (m) {
       const f = readFields_(m);
       Logger.log([m.getSubject(), '顧客=' + (f['顧客名'] || 'なし'), 'route=' + route_(m.getSubject(), f), JSON.stringify(mapFields_(f, st, m.getDate()))].join(' | '));
