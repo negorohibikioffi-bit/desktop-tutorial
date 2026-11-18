@@ -4,8 +4,8 @@
  * 初回は run() を手動実行して権限(Gmail/外部通信)を承認する。
  */
 const CONFIG = {
-  SUPABASE_URL: 'https://zrqdoorolwvjlwuatlkc.supabase.co',
-  SUPABASE_KEY: '<<HTMLに入っている anon キーと同じ値>>',
+  SUPABASE_URL: 'https://rmqsapkwtngsusqaldpe.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_VXflIxa8nyBLGpzv8SFHOA_d_qL4_1Z',
   TABLE: 'axia_kinsho_auto',
   STABLE: 'axia_kinsho_auto_settings',
   // ★金消メールの検索条件(サンプルを見て確定)。例: 'from:xxx@bank.co.jp subject:金消'
@@ -44,7 +44,7 @@ function parse_(m, keys) {
 
 function sb_(path, opt) {
   opt = opt || {};
-  opt.headers = Object.assign({ apikey: CONFIG.SUPABASE_KEY, Authorization: 'Bearer ' + CONFIG.SUPABASE_KEY, 'Content-Type': 'application/json' }, opt.headers || {});
+  opt.headers = Object.assign({ apikey: CONFIG.SUPABASE_KEY, 'Content-Type': 'application/json' }, opt.headers || {});
   opt.muteHttpExceptions = true;
   const r = UrlFetchApp.fetch(CONFIG.SUPABASE_URL + '/rest/v1/' + path, opt);
   if (r.getResponseCode() >= 300) throw new Error(r.getResponseCode() + ' ' + r.getContentText());
