@@ -112,7 +112,7 @@ const SCHEMA={
   ['融資条件',[['rate','金利（％）',PC],['yield','基準利回り（％）',PC],['offset','仕入れ上限＝評価−（円）',N]]],
   ['取扱条件の確認（条件書）',[['walk10','徒歩10分以上',SEL,['いいえ','はい']],['unit3','3点ユニット',SEL,['いいえ','はい']],['washer','洗濯機置場なし・室外',SEL,['いいえ','はい']]]]]
 };
-const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',mgmtCo:'',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',station2:'',sqm:'',floorsTotal:'',floor:'',layout:UNSEL,outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02748,years:35,date:''},
+const NEWP={sim:{units:'',structure:'鉄筋コンクリート造',mgmtCo:'',mgmtMethod:'巡回',guarantee:'',remarks:'',tradeType:'（未選択）',showInternal:'載せない',addr:'',station:'',station2:'',sqm:'',floorsTotal:'',floor:'',layout:UNSEL,outCol:'①',priceOv:'',name:'新規物件',room:'',vendor:'',prop:'',base:30000,mode:'サブリース',rent:0,mgmt:0,repair:0,other:0,rate:0.02771,years:35,date:''},
  ion:{name:'新規物件',region:'東京',ekimei:'',area:'赤エリア',walk:'5分以内',sqm:'',built:'',units:'',cost:'',sub:'',shu:'',mgmt:'',repair:'',other:0,price:'',deposit:0,feeRate:0.05,y1:35,y2:45,r1:0.02424,r2:0.02616,r3:0.0252,r4:0.02772,rentBasis:'標準',feeMode:'標準',yieldOv:'',costOv:'',agentOv:''},
  sbj:{ekimei:'',walk10:'いいえ',unit3:'いいえ',washer:'いいえ',name:'新規物件',region:'東京以外',sqm:'',built:'',units:'',maisoku:'',tas:'',sub:'',shu:'',mgmtFee:'',mgmt:'',repair:'',rate:0.0235,yield:0.04,offset:4000000}};
 
@@ -238,7 +238,7 @@ function renderList(){let h='';
   L().map(p=>{const r=AxiaCalc2.sbj(p);const H=r.limit,rent=Number(p.shu||p.sub)||0;const rep=H>0?Math.round(AxiaCalc2.pmt(0.01975/12,420,H)):0;
    return `<tr onclick="go('${p.id}')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="ck" value="${p.id}" aria-label="選択"></td><td class="nm">${esc(p.name)}</td><td>${p.sqm}</td><td>${p.built?D(r.days/365,1)+'年':''}</td><td>${p.units}</td><td>${r.yieldSale?PCT(r.yieldSale):''}</td><td>${F(p.maisoku)}</td><td>${F(H)}</td><td>${r.ok?'100%':'90%'}</td><td>${F(rent)}</td><td>${F(r.kanseki)}</td><td>${F(p.mgmtFee)}</td><td>${F(rep)}</td><td class="${cls(rent-r.kanseki-Number(p.mgmtFee||0)-rep)}">${F(rent-r.kanseki-(Number(p.mgmtFee)||0)-rep)}</td><td class="${cls(H-(Number(p.maisoku)||0))}">${F(H-(Number(p.maisoku)||0))}</td></tr>`}).join('')+
   `</tbody></table><div class="note">※返済額は金利1.975%・35年(420回)。仕入れ希望額は各物件の「仕入れ上限目安」を使用。管理手数料0の物件はサブリース。</div>`}
- document.getElementById('main').innerHTML=`<div id="cfm"></div><div class="card sc"><h2>${TOOLS[S.tool]}　物件一覧</h2><div class="bar" style="margin:0 0 8px"><button id="bd" onclick="bulkAsk()" disabled>選択した物件を削除</button>${S.tool==='sim'?'<button class="pri" onclick="rkPanel()">楽天評価シートを出力（Excel）</button>':''}${S.tool==='sbj'?'<button class="pri" onclick="sbjMail()">メール文を作成</button>':''}${S.tool==='ion'?'<button onclick="ionRatePanel()">金利を全物件に一括変更</button>':''}<span class="note" style="margin:0">チェックを入れた物件だけを対象にします（未選択なら全件）</span></div>${h}</div>`;
+ document.getElementById('main').innerHTML=`<div id="cfm"></div><div class="card sc"><h2>${TOOLS[S.tool]}　物件一覧</h2><div class="bar" style="margin:0 0 8px"><button id="bd" onclick="bulkAsk()" disabled>選択した物件を削除</button>${S.tool==='sim'?'<button class="pri" onclick="rkPanel()">楽天評価シートを出力（Excel）</button>':''}${S.tool==='sbj'?'<button class="pri" onclick="sbjMail()">メール文を作成</button>':''}${S.tool==='ion'?'<button onclick="ionRatePanel()">金利を全物件に一括変更</button>':''}${S.tool==='sim'?'<button onclick="simRatePanel()">金利を全物件に一括変更</button>':''}<span class="note" style="margin:0">チェックを入れた物件だけを対象にします（未選択なら全件）</span></div>${h}</div>`;
  const all=document.getElementById('ckall');
  all.onchange=()=>{document.querySelectorAll('.ck').forEach(c=>c.checked=all.checked);selUpd()};
  document.querySelectorAll('.ck').forEach(c=>c.onchange=selUpd)}
@@ -599,6 +599,18 @@ function ionRatePanel(){const r=S.ionRates||ION_RATES;
 function ionRateApply(){const v={};for(const k of ['r1','r2','r3','r4']){const x=parseFloat(document.getElementById('ir_'+k).value);if(!(x>0&&x<20)){document.getElementById('irm').textContent='金利は0より大きい値（％）で入力してください';return}v[k]=Number((x/100).toFixed(8))}
   S.ionRates=v;Object.assign(NEWP.ion,v);S.lists.ion.forEach(p=>Object.assign(p,v));save();render();
   document.getElementById('main').insertAdjacentHTML('afterbegin',`<div class="card" style="margin-bottom:16px">${S.lists.ion.length}件の金利を変更しました（35年 ${+(v.r1*100).toFixed(4)}%／35年＋諸 ${+(v.r2*100).toFixed(4)}%／45年 ${+(v.r3*100).toFixed(4)}%／45年＋諸 ${+(v.r4*100).toFixed(4)}%）</div>`)}
+/* ---- 楽天の金利：全物件への反映 ---- */
+const SIM_RATE=0.02771, SIM_RATE_VER='2026-11';
+function simRateMig(){if(S.migSim===SIM_RATE_VER)return false;
+  S.migSim=SIM_RATE_VER;S.simRate=SIM_RATE;NEWP.sim.rate=SIM_RATE;S.lists.sim.forEach(p=>{p.rate=SIM_RATE});return true}
+function simRatePanel(){const r=S.simRate||SIM_RATE;
+  document.getElementById('cfm').innerHTML=`<div class="card" style="margin-bottom:16px"><h2>楽天の金利を全物件に一括変更（${L().length}件）</h2>
+   <label><span>金利（％）</span><input type="number" step="any" id="sr_rate" value="${+(r*100).toFixed(4)}"></label>
+   <div class="note">全ての物件の金利を、この値に書き換えます。今後追加する物件の初期値にもなります。</div>
+   <div class="bar"><button class="pri" onclick="simRateApply()">全物件に反映</button><button onclick="document.getElementById('cfm').innerHTML=''">やめる</button><span class="note" id="srm" style="margin:0"></span></div></div>`}
+function simRateApply(){const x=parseFloat(document.getElementById('sr_rate').value);if(!(x>0&&x<20)){document.getElementById('srm').textContent='金利は0より大きい値（％）で入力してください';return}
+  const v=Number((x/100).toFixed(8));S.simRate=v;NEWP.sim.rate=v;S.lists.sim.forEach(p=>{p.rate=v});save();render();
+  document.getElementById('main').insertAdjacentHTML('afterbegin',`<div class="card" style="margin-bottom:16px">${S.lists.sim.length}件の金利を${+(v*100).toFixed(4)}%に変更しました</div>`)}
 /* ---- 端末をまたぐ同期（本人専用のデータベース。使えない環境では端末内のみ） ---- */
 const setSync=t=>{const e=document.getElementById('sync');if(e)e.textContent=t};
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
@@ -622,7 +634,7 @@ function applyRemote(docs){
   SYNC.last=rem;
   try{localStorage.setItem('axia-v2-backup',JSON.stringify(S.lists))}catch(e){}
   S.lists=lists;
-  if(ionRateMig())schedSync();
+  if(ionRateMig()|simRateMig())schedSync();
   for(const t in S.cur)if(S.cur[t]!=='list'&&!lists[t].find(p=>p.id===S.cur[t]))S.cur[t]='list';
   try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
   const a=document.activeElement;if(cur()==='list'||!a||a.tagName!=='INPUT')render();else head()}
@@ -648,8 +660,8 @@ async function startSync(){
       if(!same){applyRemote(docs);setSync('同期済み')}
     },()=>setSync('同期エラー（この端末には保存済み）'));
   }catch(e){setSync('端末内のみ保存')}}
-ionRateMig();
-if(S.ionRates)Object.assign(NEWP.ion,S.ionRates);
+ionRateMig();simRateMig();
+if(S.ionRates)Object.assign(NEWP.ion,S.ionRates);if(S.simRate)NEWP.sim.rate=S.simRate;
 render();
 startSync();
 </script></body></html>
