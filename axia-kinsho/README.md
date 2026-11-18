@@ -38,7 +38,7 @@ axia-kinsho/
 
 ## B. メール連携のセットアップ（最初の1回だけ）
 
-流れ：**Gmail にメールが届く → Apps Script が1分以内に拾う → Supabase の関数が AI で読む → カードを更新 → アプリに 📧 通知**
+流れ：**Gmail にメールが届く → Apps Script（negoro.hibiki.offi@gmail.com で動かす）が1分以内に拾う → Supabase の関数が AI で読む → カードを更新 → アプリに 📧 通知**
 
 ### 手順1：履歴テーブルを作る
 Supabase ダッシュボード → SQL Editor に `supabase/migrations/001_mail_log.sql` を貼って Run。
@@ -54,22 +54,15 @@ supabase functions deploy mail-ingest --no-verify-jwt
 
 `--no-verify-jwt` は付ける（Apps Script は Supabase のログインを持たんので、代わりに `INGEST_SECRET` で守る）。
 
-### 手順3：Gmail → 関数 をつなぐ
-1. Gmail で **ラベル「金消取込」** を作る。
-2. **フィルタ** を作って、拾いたいメールに自動でそのラベルを付ける。
-   ラベルが付いたメールだけが AI に送られる。**フィルタを絞るほど安全で安上がり。**
-   Gmail の検索窓の右端 ▾ →「条件に一致するメールのフィルタを作成」に、次の検索条件を貼る：
-   ```
-   from:(support@cloudsign.jp OR noreply@gmosign.com OR gatestokyo.co.jp) OR subject:(決済 OR 金消 OR 金銭消費貸借 OR 融資承認 OR 承認通知 OR 申込完了 OR 申込受付 OR 報告 OR 完了報告)
-   ```
-   →「ラベルを付ける：金消取込」（「受信トレイをスキップ」は付けない）。
-   - 営業メール・メルマガ（オープンハウス等）や、楽天銀行の「評価依頼」回答は対象外にしてある。
-     もし巻き込まれても、AI側で `relevant=false` として履歴に「対象外」と残るだけで、カードは変わらん。
-   - 取引先が増えたら `from:( … )` にドメインを足す。
-3. <https://script.google.com> で新規プロジェクトを作り、`gas/Code.gs` を貼る。
-   左の ⚙ プロジェクトの設定 →「スクリプト プロパティ」に `INGEST_SECRET` = 手順2と同じ文字列 を追加。
-4. 関数 `setup` を1回実行（Gmail の権限を許可）→ 1分おきの自動実行が設定される。
-   `dryRun` を実行すると、対象メールが何通あるかだけ確認できる（送信はしない）。
+### 手順3：Gmail（negoro.hibiki.offi@gmail.com）→ 関数 をつなぐ
+Gmail のラベルやフィルタは**要らん**。スクリプトが検索条件でメールを直接拾う。
+1. **negoro.hibiki.offi@gmail.com でログインした状態で** <https://script.google.com> を開き、「新しいプロジェクト」を作る。
+2. `gas/Code.gs` の中身を貼る。拾う条件は先頭の `QUERY`（クラウドサイン・GMOサイン・GATES、件名に 決済/金消/申込/報告/締結完了 など）。
+3. 左の ⚙「プロジェクトの設定」→「スクリプト プロパティ」に `INGEST_SECRET` = 手順2と同じ文字列 を追加。
+4. 関数 `dryRun` を実行（初回は Gmail の権限を許可）→ ログに「いま拾われるメールの件名」が出る。**想定外のメールが混ざっとらんか確認**して、混ざるなら `QUERY` を絞る。
+5. 関数 `setup` を1回実行 → 1分おきの自動実行が設定される。
+
+> 対象は過去2日以内のメールだけ。処理済みのメールIDは覚えとるので、同じメールを二重に送ることはない。
 
 ### 動作テスト
 ```bash

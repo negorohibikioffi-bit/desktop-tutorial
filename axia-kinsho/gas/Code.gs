@@ -1,8 +1,9 @@
 /**
  * 金消アプリ メール連携（Google Apps Script）
  *
- * Gmail に「金消取込」ラベルのついたメールが届くと、1分以内に Supabase の
- * Edge Function（mail-ingest）へ送って、案件カードを自動更新する。
+ * このスクリプトを動かした Google アカウント（negoro.hibiki.offi@gmail.com）の受信メールのうち、
+ * 下の QUERY に当てはまるものを1分おきに探して、Supabase の Edge Function（mail-ingest）へ送り、
+ * 案件カードを自動更新する。Gmail 側のラベルやフィルタの設定は要らん。
  *
  * 使い方は ../README.md の「手順3」を見てね。
  */
@@ -10,8 +11,10 @@
 // ★ここだけ自分の環境に合わせて書き換える
 const CONFIG = {
   ENDPOINT: 'https://zrqdoorolwvjlwuatlkc.supabase.co/functions/v1/mail-ingest',
-  LABEL: '金消取込',          // Gmail のフィルタで自動的につけるラベル名
-  LOOKBACK: 'newer_than:2d',  // 何日前までのメールを見るか
+  // 拾うメールの検索条件（Gmail の検索窓に入れるのと同じ書き方）。広すぎる＝AIに送る量が増える
+  QUERY: 'in:anywhere -in:spam -in:trash -from:me newer_than:2d ' +
+    '(from:(support@cloudsign.jp OR noreply@gmosign.com OR gatestokyo.co.jp) ' +
+    'OR subject:(決済 OR 金消 OR 金銭消費貸借 OR 融資承認 OR 承認通知 OR 申込 OR 報告 OR 完了報告 OR 締結完了 OR 署名完了))',
   MAX_THREADS: 30,
 };
 
@@ -32,7 +35,7 @@ function processMails() {
     const doneSet = new Set(done);
     const me = Session.getActiveUser().getEmail().toLowerCase();
 
-    const threads = GmailApp.search('label:' + CONFIG.LABEL + ' ' + CONFIG.LOOKBACK, 0, CONFIG.MAX_THREADS);
+    const threads = GmailApp.search(CONFIG.QUERY, 0, CONFIG.MAX_THREADS);
     let sent = 0;
     for (const th of threads) {
       for (const msg of th.getMessages()) {
@@ -73,9 +76,10 @@ function setup() {
   console.log('1分おきの自動実行を設定した');
 }
 
-/** 動作確認用：直近のメールで何通が対象になるかだけ数える（送信はせん） */
+/** 動作確認用：いま QUERY に当たるメールの件名を一覧で出すだけ（AIにも Supabase にも送らん） */
 function dryRun() {
-  const threads = GmailApp.search('label:' + CONFIG.LABEL + ' ' + CONFIG.LOOKBACK, 0, CONFIG.MAX_THREADS);
-  const n = threads.reduce((a, t) => a + t.getMessages().length, 0);
-  console.log('対象：' + threads.length + ' スレッド / ' + n + ' 通');
+  const threads = GmailApp.search(CONFIG.QUERY, 0, CONFIG.MAX_THREADS);
+  let n = 0;
+  threads.forEach(th => th.getMessages().forEach(m => { n++; console.log(m.getDate() + ' | ' + m.getFrom() + ' | ' + m.getSubject()); }));
+  console.log('対象：' + n + ' 通（想定外のメールが混ざっとったら QUERY を絞る）');
 }
