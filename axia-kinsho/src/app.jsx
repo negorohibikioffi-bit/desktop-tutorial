@@ -729,6 +729,7 @@ function MailScreen({ log, settings, rows, onClose, onOpenRow, onUndo, onApply }
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: st.bg, color: st.fg }}>{st.l}</span>
                 {e.undone && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: '#232a3a', color: SUB }}>元に戻した</span>}
+                {e.changes && e.changes.created && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(214,180,95,.16)', color: '#e6c874' }}>新規カード</span>}
                 <span className="mono" style={{ fontSize: 11, color: SUB, marginLeft: 'auto' }}>{fmtAt(e.created_at)}</span>
               </div>
               <div style={{ fontSize: 13.5, fontWeight: 700, marginTop: 8, lineHeight: 1.5 }}>{e.subject || '（件名なし）'}</div>
@@ -1191,6 +1192,17 @@ function App() {
   const undoMail = async (e) => {
     const r = all.find(x => x.id === e.row_id);
     if (!r) return flash('そのカードはもう無かよ', true);
+    // メールで新規作成したカードは、元に戻す＝カードごと削除
+    if (e.changes && e.changes.created) {
+      if (!confirm('このメールで作ったカードを削除して、元に戻す？')) return;
+      lock.current = Date.now();
+      const res = await dbDelete(r.id);
+      if (!res.ok) return flash('⚠ 削除できんかった（通信を確認して）', true);
+      setAll(a => a.filter(x => x.id !== r.id));
+      await dbMailPatch(e.id, { undone: true, seen: true });
+      reloadMail();
+      return flash('カードを削除して元に戻したばい');
+    }
     if (!confirm('このメールでの更新を元に戻す？')) return;
     const fv = { ...(r.fields || {}) };
     Object.entries((e.changes && e.changes.fields) || {}).forEach(([k, c]) => {

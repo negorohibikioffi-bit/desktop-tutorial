@@ -15,7 +15,7 @@ const CONFIG = {
   QUERY: 'in:anywhere -in:spam -in:trash -from:me newer_than:2d ' +
     '-from:(rakuten-sec.co.jp OR openhouse-group.com OR mecyes.co.jp) ' +   // 営業・ニュースメールは除外（増えたらここに足す）
     '(from:(support@cloudsign.jp OR noreply@gmosign.com OR gatestokyo.co.jp) ' +
-    'OR subject:(決済 OR 金消 OR 金銭消費貸借 OR 融資承認 OR 承認通知 OR 申込 OR 報告 OR 完了報告 OR 締結完了 OR 署名完了))',
+    'OR subject:(決済 OR 金消 OR 金銭消費貸借 OR 融資承認 OR 承認通知 OR 申込 OR 事前承認 OR 本承認 OR 契約 OR 電話面談 OR 物件振替 OR 物件確定 OR オープン OR 報告 OR 完了報告 OR 締結完了 OR 署名完了))',
   MAX_THREADS: 30,
 };
 

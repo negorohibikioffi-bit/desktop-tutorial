@@ -164,7 +164,50 @@ type RuleResult = {
   reason: string;
   propertyText: string;      // 案件を探すための文章（物件名・号室が入っとる所）
   updates: Update[];
+  dateIsFallback?: boolean;  // 日付が件名にも本文にも無く、受信日で代用した（＝すでに入っとる日付は上書きせん）
+  // 【申込】メール用：物件名・号室で既存カードを探し、無ければ create.fields で新規作成する
+  application?: {
+    bukkenKey: string; roomKey: string; bukken: string; room: string;
+    create: Record<string, unknown>;          // 新規作成するときの初期値（key → 保存形式の値）
+  };
 };
+
+/** 進捗メールの種類 → 埋める日付項目（項目名の正規表現。上から順に探す）と、本文で日付を探すキーワード */
+const STAGES: { name: string; fields: RegExp[]; kw: string }[] = [
+  { name: '事前承認', fields: [/事前承認/], kw: '事前承認' },
+  { name: '本承認', fields: [/本承認/, /^承認/], kw: '本承認' },
+  { name: '申込', fields: [/申込/], kw: '申込' },
+  { name: '契約', fields: [/契約日/, /契約/], kw: '契約' },
+  { name: '電話面談', fields: [/電話面談/, /面談/], kw: '面談' },
+  { name: '金消', fields: [/金消/], kw: '金消' },
+  { name: '物件振替', fields: [/振替/], kw: '振替' },
+  { name: '物件確定', fields: [/物件確定/, /確定/], kw: '確定' },
+  { name: 'オープン', fields: [/オープン/], kw: 'オープン' },
+];
+
+/** 「11月30日 14:00」「2026/11/30」などを {d, t} に。年が無ければ受信日から補う */
+function parseDateTime(s: string, mailIso: string): { d: string; t: string } | null {
+  const m = s.normalize('NFKC').match(/(?:(\d{4})[年\/.-])?(\d{1,2})[月\/.-](\d{1,2})日?(?:\s*[（(][^）)]*[）)])?(?:\s*(\d{1,2})[:時](\d{2})?)?/);
+  if (!m) return null;
+  const base = isRealDate(mailIso) ? mailIso : jstToday().iso;
+  let y = m[1] ? Number(m[1]) : Number(base.slice(0, 4));
+  const mm = Number(m[2]), dd = Number(m[3]);
+  let d = `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  if (!m[1] && isRealDate(d) && new Date(d).getTime() < new Date(base).getTime() - 180 * 86400e3) {
+    y += 1; d = `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  }
+  if (!isRealDate(d)) return null;
+  const hh = m[4] !== undefined ? Number(m[4]) : -1, mi = m[5] !== undefined ? Number(m[5]) : 0;
+  const t = hh >= 0 && hh <= 23 && mi >= 0 && mi <= 59 ? `${String(hh).padStart(2, '0')}:${String(mi).padStart(2, '0')}` : '';
+  return { d, t };
+}
+
+/** 本文の中でキーワードの直後（40字以内）に出てくる日付部分を返す */
+function findAfterKeyword(body: string, kw: string): string {
+  const text = body.normalize('NFKC');
+  const i = text.indexOf(kw);
+  return i < 0 ? '' : text.slice(i + kw.length, i + kw.length + 40);
+}
 
 const isDateField = (f: FieldDef) => f.type === 'date' || f.type === 'datetime';
 const pad2 = (n: string | number) => String(n).padStart(2, '0');
@@ -176,6 +219,37 @@ function ruleExtract(
   const subject = m.subject.normalize('NFKC');
   const body = m.body.normalize('NFKC');
   const from = m.from.toLowerCase();
+
+  // 0) 進捗メール：件名が「【種類】物件名 号室」（種類は STAGES の9つ）
+  const sm = subject.match(new RegExp(`^\\s*(?:(?:re|fw|fwd)\\s*:\\s*)*[【\\[]\\s*(${STAGES.map((s) => s.name).join('|')})(?:完了|報告|のご報告|のお知らせ)?\\s*[】\\]]\\s*(.+?)\\s*$`, 'i'));
+  if (sm) {
+    const stage = STAGES.find((s) => s.name === sm[1])!;
+    let rest = sm[2];
+    // 件名の末尾に日付（時刻）が付いとれば、それを日付として使う
+    const subjDate = parseDateTime(rest.match(/(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/)?.[0] ?? '', m.dateIso);
+    rest = rest.replace(/[\s\u3000]*(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/, '');
+    const rm = rest.match(/^(.*?)[\s\u3000]*(\d{1,5})\s*(?:号室|号)?\s*$/);
+    const bukken = (rm ? rm[1] : rest).trim();
+    const room = rm ? rm[2] : '';
+    const bf = defs.find((d) => d.type === 'text' && /物件/.test(d.label));
+    const rf = defs.find((d) => d.type === 'text' && /号室|部屋/.test(d.label));
+    const af = stage.fields.map((re) => defs.find((d) => re.test(d.label) && isDateField(d))).find(Boolean);
+    if (!bukken || !bf) return { relevant: true, reason: `${stage.name}のメールだが、物件名を読めんか「物件名」の項目が無い`, propertyText: subject, updates: [] };
+    // 日付：件名の日付 ＞ 本文のキーワード直後の日付 ＞ 受信日
+    const bodyDate = parseDateTime(findAfterKeyword(body, stage.kw), m.dateIso);
+    const dt = subjDate ?? bodyDate ?? (isRealDate(m.dateIso) ? { d: m.dateIso, t: '' } : null);
+    const create: Record<string, unknown> = { [bf.key]: bukken };
+    if (rf && room) create[rf.key] = room;
+    if (af && dt) create[af.key] = af.type === 'datetime' ? { d: dt.d, t: dt.t, none: false } : dt.d;
+    return {
+      relevant: true,
+      reason: `${stage.name}（${bukken}${room ? ' ' + room : ''}）${af ? '' : ` ※「${stage.name}」に当たる日付項目が無いので物件だけ登録`}`,
+      propertyText: subject,
+      updates: af && dt ? [{ key: af.key, date: dt.d, time: dt.t || undefined }] : [],
+      dateIsFallback: !subjDate && !bodyDate,
+      application: { bukkenKey: bf.key, roomKey: rf?.key ?? '', bukken, room, create },
+    };
+  }
 
   // 1) 電子契約の完了通知（クラウドサイン／GMOサイン）
   const isSign = /cloudsign\.jp|gmosign\.com/.test(from);
@@ -216,6 +290,19 @@ function pickRow<T extends { id: number; name?: string; fields?: Record<string, 
   if (!scored.length) return { row: null, hits: 0, unique: false };
   const unique = scored.length === 1 || scored[0].h > scored[1].h;
   return { row: scored[0].r, hits: scored[0].h, unique };
+}
+
+/** 物件名（と号室）が完全に一致する既存カードを探す。複数あれば新しい（id が大きい）方 */
+function findExisting<T extends { id: number; fields?: Record<string, unknown> }>(
+  rows: T[], a: { bukkenKey: string; roomKey: string; bukken: string; room: string },
+): T | null {
+  const hit = rows.filter((r) => {
+    const f = r.fields ?? {};
+    if (norm(String(f[a.bukkenKey] ?? '')) !== norm(a.bukken)) return false;
+    if (a.room && a.roomKey && norm(String(f[a.roomKey] ?? '')) !== norm(a.room)) return false;
+    return true;
+  });
+  return hit.length ? hit.reduce((x, y) => (y.id > x.id ? y : x)) : null;
 }
 
 
@@ -347,7 +434,7 @@ Deno.serve(async (req) => {
     const defs: FieldDef[] = (st.data.settings?.fields ?? []) as FieldDef[];
 
     const { from: m1, to: m2 } = monthRange();
-    const rowsRes = await db.from('axia_kinsho').select('id, month, name, fields').gte('month', m1).lte('month', m2).order('id');
+    const rowsRes = await db.from('axia_kinsho').select('id, month, name, fields, sort_order').gte('month', m1).lte('month', m2).order('id');
     if (rowsRes.error) throw new Error('rows: ' + rowsRes.error.message);
     const rows = rowsRes.data ?? [];
 
@@ -360,7 +447,32 @@ Deno.serve(async (req) => {
         await log({ status: 'skipped', summary: rule.reason });
         return json({ ok: true, status: 'skipped' });
       }
-      const pick = pickRow(rows, defs, rule.propertyText);
+      // 【申込】メール：同じ物件・号室のカードがあれば申込日だけ入れる／無ければ新規カードを作る
+      let existing: typeof rows[number] | null = null;
+      if (rule.application) {
+        existing = findExisting(rows, rule.application);
+        if (!existing) {
+          const a = rule.application;
+          const mailMonth = /^\d{4}-\d{2}/.test(String(p.date ?? '')) ? String(p.date).slice(0, 7) : jstToday().iso.slice(0, 7);
+          const label = `${a.bukken}${a.room ? ' ' + a.room : ''}`;
+          const created = Object.fromEntries(Object.entries(a.create).map(([k, v]) => [k, { before: null, after: v }]));
+          if (!AUTO_APPLY) {
+            await log({ status: 'review', proposed: { fields: a.create }, summary: `申込メール：新規カードの作成候補（${label}）` });
+            return json({ ok: true, status: 'review' });
+          }
+          const maxSo = rows.filter((x) => x.month === mailMonth).reduce((mx, x) => Math.max(mx, Number((x as { sort_order?: number }).sort_order ?? 0)), 0);
+          const ins = await db.from('axia_kinsho').insert({ month: mailMonth, name: '', fields: a.create, sort_order: maxSo + 1000 }).select('id').single();
+          if (ins.error) throw new Error('insert: ' + ins.error.message);
+          await log({ status: 'applied', row_id: ins.data.id, changes: { created: true, fields: created }, summary: `新規カードを作成：${label}（${mailMonth}）` });
+          return json({ ok: true, status: 'applied', created: true });
+        }
+      }
+      // 日付が受信日の代用でしかないときは、すでに入っとる日付を上書きせん（再送メールで最初の日付が消えんように）
+      if (existing && rule.dateIsFallback) {
+        const cur = (existing.fields ?? {}) as Record<string, unknown>;
+        rule.updates = rule.updates.filter((u) => !cur[u.key] || (typeof cur[u.key] === 'object' && !(cur[u.key] as { d?: string }).d));
+      }
+      const pick = existing ? { row: existing, hits: 2, unique: true } : pickRow(rows, defs, rule.propertyText);
       r = {
         relevant: true,
         row_id: pick.row ? pick.row.id : null,

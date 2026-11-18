@@ -14,7 +14,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
-  buildChanges, compactRows, describe, identityHits, jstToday, monthRange, pickRow, ruleExtract,
+  buildChanges, compactRows, describe, findExisting, identityHits, jstToday, monthRange, pickRow, ruleExtract,
   type FieldDef, type Update,
 } from './logic.ts';
 
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     const defs: FieldDef[] = (st.data.settings?.fields ?? []) as FieldDef[];
 
     const { from: m1, to: m2 } = monthRange();
-    const rowsRes = await db.from('axia_kinsho').select('id, month, name, fields').gte('month', m1).lte('month', m2).order('id');
+    const rowsRes = await db.from('axia_kinsho').select('id, month, name, fields, sort_order').gte('month', m1).lte('month', m2).order('id');
     if (rowsRes.error) throw new Error('rows: ' + rowsRes.error.message);
     const rows = rowsRes.data ?? [];
 
@@ -159,7 +159,32 @@ Deno.serve(async (req) => {
         await log({ status: 'skipped', summary: rule.reason });
         return json({ ok: true, status: 'skipped' });
       }
-      const pick = pickRow(rows, defs, rule.propertyText);
+      // 【申込】メール：同じ物件・号室のカードがあれば申込日だけ入れる／無ければ新規カードを作る
+      let existing: typeof rows[number] | null = null;
+      if (rule.application) {
+        existing = findExisting(rows, rule.application);
+        if (!existing) {
+          const a = rule.application;
+          const mailMonth = /^\d{4}-\d{2}/.test(String(p.date ?? '')) ? String(p.date).slice(0, 7) : jstToday().iso.slice(0, 7);
+          const label = `${a.bukken}${a.room ? ' ' + a.room : ''}`;
+          const created = Object.fromEntries(Object.entries(a.create).map(([k, v]) => [k, { before: null, after: v }]));
+          if (!AUTO_APPLY) {
+            await log({ status: 'review', proposed: { fields: a.create }, summary: `申込メール：新規カードの作成候補（${label}）` });
+            return json({ ok: true, status: 'review' });
+          }
+          const maxSo = rows.filter((x) => x.month === mailMonth).reduce((mx, x) => Math.max(mx, Number((x as { sort_order?: number }).sort_order ?? 0)), 0);
+          const ins = await db.from('axia_kinsho').insert({ month: mailMonth, name: '', fields: a.create, sort_order: maxSo + 1000 }).select('id').single();
+          if (ins.error) throw new Error('insert: ' + ins.error.message);
+          await log({ status: 'applied', row_id: ins.data.id, changes: { created: true, fields: created }, summary: `新規カードを作成：${label}（${mailMonth}）` });
+          return json({ ok: true, status: 'applied', created: true });
+        }
+      }
+      // 日付が受信日の代用でしかないときは、すでに入っとる日付を上書きせん（再送メールで最初の日付が消えんように）
+      if (existing && rule.dateIsFallback) {
+        const cur = (existing.fields ?? {}) as Record<string, unknown>;
+        rule.updates = rule.updates.filter((u) => !cur[u.key] || (typeof cur[u.key] === 'object' && !(cur[u.key] as { d?: string }).d));
+      }
+      const pick = existing ? { row: existing, hits: 2, unique: true } : pickRow(rows, defs, rule.propertyText);
       r = {
         relevant: true,
         row_id: pick.row ? pick.row.id : null,

@@ -68,3 +68,65 @@ assert.equal(ruleExtract({ from: 'x@openhouse-group.com', subject: '今一番い
 // 候補日の相談など（確定ではない）→ null
 assert.equal(ruleExtract({ from: 'x@bank.jp', subject: '決済日のご相談', body: '11月30日か12月2日で決済をお願いできますか', dateIso: '2026-11-18' }, D2), null);
 console.log('rule tests: all passed');
+
+// ---- 申込メール ----
+import { findExisting } from './logic.ts';
+const D3: any = [
+  { key: 'bukken', label: '物件名', type: 'text' }, { key: 'room', label: '号室', type: 'text' },
+  { key: 'moushi', label: '申込日', type: 'date' },
+];
+let ap: any = ruleExtract({ from: '桃井貴也 <x@gmail.com>', subject: '【申込】AXIA M-CITY大阪瑞光 101', body: '', dateIso: '2026-11-18' }, D3);
+assert.equal(ap.application.bukken, 'AXIA M-CITY大阪瑞光'); assert.equal(ap.application.room, '101');
+assert.deepEqual(ap.application.create, { bukken: 'AXIA M-CITY大阪瑞光', room: '101', moushi: '2026-11-18' });
+ap = ruleExtract({ from: 'x@gmail.com', subject: 'Re: 【申込】グランドパレス 1203号室', body: '', dateIso: '2026-11-18' }, D3);
+assert.equal(ap.application.bukken, 'グランドパレス'); assert.equal(ap.application.room, '1203');
+// 号室なし
+ap = ruleExtract({ from: 'x@gmail.com', subject: '【申込】戸建A', body: '', dateIso: '2026-11-18' }, D3);
+assert.equal(ap.application.room, ''); assert.equal(ap.application.bukken, '戸建A');
+// 既存カード探索：全角半角・空白の違いを吸収／複数なら新しい方
+const ex = [{ id: 5, fields: { bukken: 'ＡＸＩＡ M-CITY大阪瑞光', room: '101' } }, { id: 9, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '101' } }, { id: 7, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '104' } }];
+assert.equal(findExisting(ex, { bukkenKey: 'bukken', roomKey: 'room', bukken: 'AXIA M-CITY大阪瑞光', room: '101' })!.id, 9);
+assert.equal(findExisting(ex, { bukkenKey: 'bukken', roomKey: 'room', bukken: 'AXIA M-CITY大阪瑞光', room: '999' }), null);
+// 「申込」を含むだけのメールは対象にしない
+assert.equal(ruleExtract({ from: 'n@rakuten-sec.co.jp', subject: '【お申込受付中】セミナー', body: '', dateIso: '2026-11-18' }, D3), null);
+console.log('application tests: all passed');
+
+// ---- 9種類の進捗メール ----
+import { STAGES, parseDateTime } from './logic.ts';
+const ALL: any = [
+  { key: 'bukken', label: '物件名', type: 'text' }, { key: 'room', label: '号室', type: 'text' },
+  { key: 'jizen', label: '事前承認日', type: 'date' }, { key: 'honsho', label: '本承認日', type: 'date' },
+  { key: 'moushi', label: '申込日', type: 'date' }, { key: 'keiyaku', label: '契約日', type: 'datetime' },
+  { key: 'denwa', label: '電話面談日', type: 'datetime' }, { key: 'kinsho', label: '金消予定日', type: 'datetime' },
+  { key: 'furikae', label: '物件振替日', type: 'date' }, { key: 'kakutei', label: '物件確定日', type: 'date' },
+  { key: 'open', label: 'オープン日', type: 'date' },
+];
+const expectKey: Record<string, string> = { 事前承認: 'jizen', 本承認: 'honsho', 申込: 'moushi', 契約: 'keiyaku', 電話面談: 'denwa', 金消: 'kinsho', 物件振替: 'furikae', 物件確定: 'kakutei', オープン: 'open' };
+assert.equal(STAGES.length, 9);
+for (const s of STAGES) {
+  const r: any = ruleExtract({ from: 'a@b.jp', subject: `【${s.name}】テスト物件 305`, body: '', dateIso: '2026-11-18' }, ALL);
+  assert.equal(r.updates[0].key, expectKey[s.name], s.name);
+  assert.equal(r.updates[0].date, '2026-11-18', s.name);                     // 日付が無ければ受信日
+  assert.equal(r.application.bukken, 'テスト物件'); assert.equal(r.application.room, '305');
+}
+// 件名の末尾の日付・時刻を優先（号室と取り違えない）
+let sg: any = ruleExtract({ from: 'a@b.jp', subject: '【金消】AXIA M-CITY大阪瑞光 101 11/30 14:00', body: '', dateIso: '2026-11-18' }, ALL);
+assert.deepEqual(sg.updates, [{ key: 'kinsho', date: '2026-11-30', time: '14:00' }]); assert.equal(sg.application.room, '101');
+assert.deepEqual(sg.application.create.kinsho, { d: '2026-11-30', t: '14:00', none: false });
+// 本文のキーワード直後の日付
+sg = ruleExtract({ from: 'a@b.jp', subject: '【契約】グランドパレス 501', body: '契約日時：12月5日（土）13:30 でお願いします', dateIso: '2026-11-18' }, ALL);
+assert.deepEqual(sg.updates, [{ key: 'keiyaku', date: '2026-12-05', time: '13:30' }]);
+// 「完了」「報告」付き・Re: 付き
+sg = ruleExtract({ from: 'a@b.jp', subject: 'Re: 【本承認完了】グランドパレス 501', body: '', dateIso: '2026-11-18' }, ALL);
+assert.equal(sg.updates[0].key, 'honsho');
+// 対応する項目が無い種類 → 物件だけ登録（日付は入れない）
+sg = ruleExtract({ from: 'a@b.jp', subject: '【オープン】X物件 1', body: '', dateIso: '2026-11-18' }, ALL.filter((f: any) => f.key !== 'open'));
+assert.deepEqual(sg.updates, []);
+// 年またぎ：12月受信で「1月10日」→ 翌年
+assert.deepEqual(parseDateTime('1月10日 10:00', '2026-12-20'), { d: '2027-01-10', t: '10:00' });
+assert.equal(parseDateTime('メモ', '2026-11-18'), null);
+console.log('stage tests: all passed');
+// 日付が受信日の代用か
+assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1', body: '', dateIso: '2026-11-18' }, ALL) as any).dateIsFallback, true);
+assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1 11/20', body: '', dateIso: '2026-11-18' }, ALL) as any).dateIsFallback, false);
+console.log('fallback tests: all passed');

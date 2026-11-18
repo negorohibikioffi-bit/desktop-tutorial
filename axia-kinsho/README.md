@@ -16,6 +16,7 @@ axia-kinsho/
 ├─ src/app.jsx  build.mjs                                            ← ソース（編集はここ）→ `npm run build` で app.js を作る
 ├─ supabase/migrations/000_base.sql                                  ← 手順1：テーブル作成（最初の項目設定つき）
 ├─ supabase/migrations/001_mail_log.sql                              ← 手順1：メール履歴テーブル
+├─ supabase/migrations/002_stage_fields.sql                          ← 手順1：進捗メール用の日付項目
 ├─ dist/mail-ingest.single.ts                                        ← 手順2：メールを読んで更新する関数（1ファイル版）
 └─ gas/Code.gs                                                       ← 手順3：Gmail → 関数へ送るスクリプト
 ```
@@ -36,6 +37,7 @@ axia-kinsho/
 Supabase → **SQL Editor** → New query に、**次の順で1本ずつ**貼って Run：
 1. `supabase/migrations/000_base.sql`（案件テーブル・設定・最初の項目）
 2. `supabase/migrations/001_mail_log.sql`（メール履歴）
+3. `supabase/migrations/002_stage_fields.sql`（進捗メール9種類ぶんの日付項目。足りんものだけ追加）
 
 どちらも「Success」と出ればOK（再実行しても壊れん）。
 
@@ -84,6 +86,27 @@ curl -X POST "https://<プロジェクトID>.supabase.co/functions/v1/mail-inges
 > 公開後に更新を出すときは、`sw.js` の `VER` と `index.html` の `app.js?v=` を一緒に上げると確実。
 
 ---
+
+## 進捗メール（件名が `【種類】物件名 号室`）
+
+アプリの「種類」プルダウンの**9種類すべて**を、件名の `【…】` で見分けて、対応する日付項目を埋める。
+
+| 件名の種類 | 埋める項目 |
+|---|---|
+| 【事前承認】 | 事前承認日 | 
+| 【本承認】 | 本承認日（無ければ 承認日） |
+| 【申込】 | 申込日 |
+| 【契約】 | 契約日 |
+| 【電話面談】 | 電話面談日 |
+| 【金消】 | 金消予定日 |
+| 【物件振替】 | 物件振替日 |
+| 【物件確定】 | 物件確定日 |
+| 【オープン】 | オープン日 |
+
+- 日付は **件名の末尾の日付（例：`【金消】○○ 101 11/30 14:00`） ＞ 本文のその種類の直後の日付 ＞ 受信日** の順で使う。
+- `【本承認完了】`、`Re:` 付きも同じ扱い。
+- 同じ物件名・号室のカードがあれば、その項目だけ更新。**無ければ新規カードを今月に作る**（名前は空。履歴の「元に戻す」で削除できる）。
+- 項目が足りんときは、**手順1の `002_stage_fields.sql`** を SQL Editor で実行する（足りん項目だけ追加。何回流してもOK）。
 
 ## 無料で動く範囲（AIなし）
 

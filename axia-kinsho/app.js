@@ -1636,7 +1636,16 @@ function MailScreen({
         background: '#232a3a',
         color: SUB
       }
-    }, "\u5143\u306B\u623B\u3057\u305F"), React.createElement("span", {
+    }, "\u5143\u306B\u623B\u3057\u305F"), e.changes && e.changes.created && React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '2px 8px',
+        borderRadius: 6,
+        background: 'rgba(214,180,95,.16)',
+        color: '#e6c874'
+      }
+    }, "\u65B0\u898F\u30AB\u30FC\u30C9"), React.createElement("span", {
       className: "mono",
       style: {
         fontSize: 11,
@@ -2447,6 +2456,19 @@ function App() {
   const undoMail = async e => {
     const r = all.find(x => x.id === e.row_id);
     if (!r) return flash('そのカードはもう無かよ', true);
+    if (e.changes && e.changes.created) {
+      if (!confirm('このメールで作ったカードを削除して、元に戻す？')) return;
+      lock.current = Date.now();
+      const res = await dbDelete(r.id);
+      if (!res.ok) return flash('⚠ 削除できんかった（通信を確認して）', true);
+      setAll(a => a.filter(x => x.id !== r.id));
+      await dbMailPatch(e.id, {
+        undone: true,
+        seen: true
+      });
+      reloadMail();
+      return flash('カードを削除して元に戻したばい');
+    }
     if (!confirm('このメールでの更新を元に戻す？')) return;
     const fv = {
       ...(r.fields || {})

@@ -7,5 +7,6 @@ let index = readFileSync(new URL('index.ts', dir), 'utf8');
 index = index.replace(/import \{[^}]*\} from '\.\/logic\.ts';\n/, '');
 mkdirSync(new URL('../dist/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../dist/mail-ingest.single.ts', import.meta.url),
-  `// ※ 自動生成（npm run bundle-fn）。logic.ts + index.ts を1つにまとめたもの\n${index.replace("import { createClient } from 'npm:@supabase/supabase-js@2';", "import { createClient } from 'npm:@supabase/supabase-js@2';\n" + logic)}`);
+  // ※ 置換は「関数」で行う（文字列だと、中の `$'` や `$&` が特殊記号として解釈されて壊れる）
+  `// ※ 自動生成（npm run bundle-fn）。logic.ts + index.ts を1つにまとめたもの\n${index.replace("import { createClient } from 'npm:@supabase/supabase-js@2';", () => "import { createClient } from 'npm:@supabase/supabase-js@2';\n" + logic)}`);
 console.log('dist/mail-ingest.single.ts を作った');
