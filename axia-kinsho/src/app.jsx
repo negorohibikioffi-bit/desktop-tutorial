@@ -754,7 +754,7 @@ function MailScreen({ log, settings, rows, onClose, onOpenRow, onUndo, onApply }
 }
 
 /* ===== 設定画面 ===== */
-function SettingsScreen({ settings, onSave, onClose }) {
+function SettingsScreen({ settings, onSave, onClose, email, onLogout }) {
   const [d, setD] = useState(() => JSON.parse(JSON.stringify(settings)));
   const up = (p) => setD(x => ({ ...x, ...p }));
   const updF = (i, p) => setD(x => ({ ...x, fields: x.fields.map((f, idx) => idx === i ? { ...f, ...p } : f) }));
@@ -930,6 +930,11 @@ function SettingsScreen({ settings, onSave, onClose }) {
           </div>
           <button onClick={addF} style={{ ...subBtn, width: '100%', borderStyle: 'dashed' }}>＋ 項目を追加</button>
         </Sec>
+
+        <Sec title="アカウント">
+          <div style={{ fontSize: 12.5, color: SUBTXT, margin: '6px 0 10px', wordBreak: 'break-all' }}>ログイン中：{email || '（不明）'}</div>
+          <button onClick={() => { if (confirm('ログアウトする？')) onLogout(); }} style={{ ...subBtn, width: '100%', color: '#ff7b72', borderColor: '#5a2d31' }}>ログアウト</button>
+        </Sec>
       </div>
 
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(transparent,#0d1017 35%)' }}>
@@ -962,7 +967,7 @@ function Sec({ title, children }) {
 }
 
 /* ===== 本体 ===== */
-function App() {
+function App({ email, onLogout }) {
   const [all, setAll] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [screen, setScreen] = useState('main');
@@ -1449,7 +1454,7 @@ tr.band { page-break-after:avoid; }
       onOpenRow={openFromMail} onUndo={undoMail} onApply={applyMail} />;
   }
   if (screen === 'settings') {
-    return <SettingsScreen settings={settings} onSave={saveSettings} onClose={() => setScreen('main')} />;
+    return <SettingsScreen settings={settings} onSave={saveSettings} onClose={() => setScreen('main')} email={email} onLogout={onLogout} />;
   }
 
   return (
@@ -1642,4 +1647,51 @@ function NotConfigured() {
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById('root')).render(CONFIGURED ? <App /> : <NotConfigured />);
+/* ===== ログイン（チーム共用のアカウントでログインした人だけがデータを見られる） ===== */
+function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const go = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setErr('');
+    try {
+      const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: pw });
+      if (error) setErr(/invalid/i.test(error.message) ? 'メールアドレスかパスワードが違うっちゃ' : 'ログインできんかった：' + error.message);
+    } catch (e2) { setErr('通信に失敗した。電波を確認してね'); }
+    setBusy(false);
+  };
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <form onSubmit={go} style={{ width: '100%', maxWidth: 380, background: PANEL, border: `1px solid ${GOLD}55`, borderRadius: 16, padding: '28px 22px', boxShadow: '0 10px 30px rgba(0,0,0,.45)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <img src="icons/icon-192.png" alt="" style={{ width: 64, height: 64, borderRadius: 14 }} />
+          <div style={{ fontSize: 18, fontWeight: 700, marginTop: 10, color: GOLD }}>金消予定日 一覧</div>
+          <div style={{ fontSize: 11.5, color: SUB, marginTop: 4 }}>AXIA JAPAN ／ 仕入れ事業部</div>
+        </div>
+        <label style={{ fontSize: 11.5, color: SUB }}>メールアドレス</label>
+        <input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} style={{ ...inp, marginBottom: 12, marginTop: 4 }} />
+        <label style={{ fontSize: 11.5, color: SUB }}>パスワード</label>
+        <input type="password" autoComplete="current-password" required value={pw} onChange={e => setPw(e.target.value)} style={{ ...inp, marginBottom: 14, marginTop: 4 }} />
+        {!!err && <div style={{ fontSize: 12.5, color: '#ff9a92', background: '#2e1b1c', border: '1px solid #6b2f2b', borderRadius: 8, padding: '8px 10px', marginBottom: 12, lineHeight: 1.5 }}>{err}</div>}
+        <button type="submit" disabled={busy} style={{ width: '100%', padding: 14, background: `linear-gradient(180deg,#e3c577,${GOLD})`, color: ON_GOLD, border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'ログイン中…' : 'ログイン'}</button>
+      </form>
+    </div>
+  );
+}
+
+function Root() {
+  const [session, setSession] = useState(undefined);   // undefined＝確認中 ／ null＝未ログイン
+  useEffect(() => {
+    sb.auth.getSession().then(({ data }) => setSession(data.session || null));
+    const { data } = sb.auth.onAuthStateChange((_e, s) => setSession(s || null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+  if (session === undefined) return <div style={{ textAlign: 'center', color: SUB, fontSize: 13, padding: '80px 0' }}>読み込み中…</div>;
+  if (!session) return <LoginScreen />;
+  return <App key={session.user.id} email={session.user.email} onLogout={() => sb.auth.signOut()} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(CONFIGURED ? <Root /> : <NotConfigured />);

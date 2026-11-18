@@ -1724,7 +1724,9 @@ function MailScreen({
 function SettingsScreen({
   settings,
   onSave,
-  onClose
+  onClose,
+  email,
+  onLogout
 }) {
   const [d, setD] = useState(() => JSON.parse(JSON.stringify(settings)));
   const up = p => setD(x => ({
@@ -2107,7 +2109,26 @@ function SettingsScreen({
       width: '100%',
       borderStyle: 'dashed'
     }
-  }, "\uFF0B \u9805\u76EE\u3092\u8FFD\u52A0"))), React.createElement("div", {
+  }, "\uFF0B \u9805\u76EE\u3092\u8FFD\u52A0")), React.createElement(Sec, {
+    title: "\u30A2\u30AB\u30A6\u30F3\u30C8"
+  }, React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: SUBTXT,
+      margin: '6px 0 10px',
+      wordBreak: 'break-all'
+    }
+  }, "\u30ED\u30B0\u30A4\u30F3\u4E2D\uFF1A", email || '（不明）'), React.createElement("button", {
+    onClick: () => {
+      if (confirm('ログアウトする？')) onLogout();
+    },
+    style: {
+      ...subBtn,
+      width: '100%',
+      color: '#ff7b72',
+      borderColor: '#5a2d31'
+    }
+  }, "\u30ED\u30B0\u30A2\u30A6\u30C8"))), React.createElement("div", {
     style: {
       position: 'fixed',
       bottom: 0,
@@ -2185,7 +2206,10 @@ function Sec({
     }
   }, title), children);
 }
-function App() {
+function App({
+  email,
+  onLogout
+}) {
   const [all, setAll] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [screen, setScreen] = useState('main');
@@ -2758,7 +2782,9 @@ tr.band { page-break-after:avoid; }
     return React.createElement(SettingsScreen, {
       settings: settings,
       onSave: saveSettings,
-      onClose: () => setScreen('main')
+      onClose: () => setScreen('main'),
+      email: email,
+      onLogout: onLogout
     });
   }
   return React.createElement("div", {
@@ -3237,4 +3263,158 @@ function NotConfigured() {
     }
   }, React.createElement("b", null, "config.js"), " \u306B\u3001Supabase \u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E ", React.createElement("b", null, "Project URL"), " \u3068 ", React.createElement("b", null, "anon \u30AD\u30FC"), " \u3092\u66F8\u3044\u3066\u306D\u3002", React.createElement("br", null), "\uFF08Supabase \u2192 Project Settings \u2192 API \u306B\u51FA\u3068\u308B\u3002\u624B\u9806\u306F README \u306E\u300C\u624B\u98060\u300D\uFF09"));
 }
-ReactDOM.createRoot(document.getElementById('root')).render(CONFIGURED ? React.createElement(App, null) : React.createElement(NotConfigured, null));
+function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const go = async e => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const {
+        error
+      } = await sb.auth.signInWithPassword({
+        email: email.trim(),
+        password: pw
+      });
+      if (error) setErr(/invalid/i.test(error.message) ? 'メールアドレスかパスワードが違うっちゃ' : 'ログインできんかった：' + error.message);
+    } catch (e2) {
+      setErr('通信に失敗した。電波を確認してね');
+    }
+    setBusy(false);
+  };
+  return React.createElement("div", {
+    style: {
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20
+    }
+  }, React.createElement("form", {
+    onSubmit: go,
+    style: {
+      width: '100%',
+      maxWidth: 380,
+      background: PANEL,
+      border: `1px solid ${GOLD}55`,
+      borderRadius: 16,
+      padding: '28px 22px',
+      boxShadow: '0 10px 30px rgba(0,0,0,.45)'
+    }
+  }, React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      marginBottom: 20
+    }
+  }, React.createElement("img", {
+    src: "icons/icon-192.png",
+    alt: "",
+    style: {
+      width: 64,
+      height: 64,
+      borderRadius: 14
+    }
+  }), React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 700,
+      marginTop: 10,
+      color: GOLD
+    }
+  }, "\u91D1\u6D88\u4E88\u5B9A\u65E5 \u4E00\u89A7"), React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: SUB,
+      marginTop: 4
+    }
+  }, "AXIA JAPAN \uFF0F \u4ED5\u5165\u308C\u4E8B\u696D\u90E8")), React.createElement("label", {
+    style: {
+      fontSize: 11.5,
+      color: SUB
+    }
+  }, "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9"), React.createElement("input", {
+    type: "email",
+    autoComplete: "username",
+    required: true,
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    style: {
+      ...inp,
+      marginBottom: 12,
+      marginTop: 4
+    }
+  }), React.createElement("label", {
+    style: {
+      fontSize: 11.5,
+      color: SUB
+    }
+  }, "\u30D1\u30B9\u30EF\u30FC\u30C9"), React.createElement("input", {
+    type: "password",
+    autoComplete: "current-password",
+    required: true,
+    value: pw,
+    onChange: e => setPw(e.target.value),
+    style: {
+      ...inp,
+      marginBottom: 14,
+      marginTop: 4
+    }
+  }), !!err && React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: '#ff9a92',
+      background: '#2e1b1c',
+      border: '1px solid #6b2f2b',
+      borderRadius: 8,
+      padding: '8px 10px',
+      marginBottom: 12,
+      lineHeight: 1.5
+    }
+  }, err), React.createElement("button", {
+    type: "submit",
+    disabled: busy,
+    style: {
+      width: '100%',
+      padding: 14,
+      background: `linear-gradient(180deg,#e3c577,${GOLD})`,
+      color: ON_GOLD,
+      border: 'none',
+      borderRadius: 12,
+      fontSize: 15,
+      fontWeight: 700,
+      cursor: busy ? 'default' : 'pointer',
+      opacity: busy ? .6 : 1
+    }
+  }, busy ? 'ログイン中…' : 'ログイン')));
+}
+function Root() {
+  const [session, setSession] = useState(undefined);
+  useEffect(() => {
+    sb.auth.getSession().then(({
+      data
+    }) => setSession(data.session || null));
+    const {
+      data
+    } = sb.auth.onAuthStateChange((_e, s) => setSession(s || null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+  if (session === undefined) return React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      color: SUB,
+      fontSize: 13,
+      padding: '80px 0'
+    }
+  }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026");
+  if (!session) return React.createElement(LoginScreen, null);
+  return React.createElement(App, {
+    key: session.user.id,
+    email: session.user.email,
+    onLogout: () => sb.auth.signOut()
+  });
+}
+ReactDOM.createRoot(document.getElementById('root')).render(CONFIGURED ? React.createElement(Root, null) : React.createElement(NotConfigured, null));

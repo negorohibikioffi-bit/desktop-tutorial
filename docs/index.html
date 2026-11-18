@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>金消予定日 一覧 | AXIA JAPAN</title>
+<!-- アプリ化（ホーム画面に追加すると、ブラウザの枠なしで開く） -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#090c12">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="金消予定日">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* ブラウザ側の自動スクロール補正は切って、カード開閉時の位置合わせはアプリ側だけでやる */
+  html, body { overflow-anchor: none; background: #0d1017; }
+  body { margin:0; font-family:'Noto Sans JP',sans-serif; color:#ece7d8; -webkit-font-smoothing: antialiased; }
+  input, select, button, textarea { font-family:'Noto Sans JP',sans-serif; color:#ece7d8; color-scheme: dark; }
+  input, select, textarea { background:#161b25; }
+  input::placeholder, textarea::placeholder { color:#6b7487; }
+  input:focus, select:focus, textarea:focus { outline:2px solid #d6b45f; outline-offset:0; }
+  option { background:#161b25; color:#ece7d8; }
+  button:active { filter: brightness(1.15); }
+  ::selection { background: rgba(214,180,95,.35); }
+  * { scrollbar-width: thin; scrollbar-color: #343d52 transparent; }
+  .mono { font-family:'DM Mono',monospace; }
+  /* ブラウザ標準の小さいカレンダー/時計アイコンは消して、自前の大きいボタンに一本化する */
+  input[type=date]::-webkit-calendar-picker-indicator,
+  input[type=time]::-webkit-calendar-picker-indicator { display:none; -webkit-appearance:none; }
+  input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; color:#ece7d8; color-scheme: dark; }
+  /* 起動中の表示（JSが読み込まれるまで） */
+  #boot { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+          background:#0d1017; color:#d6b45f; font-size:13px; letter-spacing:.12em; z-index:1; }
+  #boot img { width:72px; height:72px; border-radius:16px; }
+  #root:not(:empty) ~ #boot, #root:not(:empty) + #boot { display:none; }
+</style>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<div id="boot"><img src="icons/icon-192.png" alt=""><div>読み込み中…</div></div>
+
+<!-- アプリ本体（src/app.jsx を build.mjs で変換したもの） -->
+<script src="app.js?v=14.0.0"></script>
+
+<!-- オフラインでも起動できるように、Service Worker を登録 -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('sw:', e); });
+  });
+}
+</script>
+
+<!-- ホーム画面へのインストール案内
+     Android(Chrome)：ページから直接インストール画面を出す。
+     iPhone / iPad：Safariの「ホーム画面に追加」の手順を案内する。 -->
+<div id="pwaInstallBar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#161b25;border:1px solid #d6b45f;color:#ece7d8;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.5);padding:6px 6px 6px 16px;font-size:14px;font-weight:700;align-items:center;gap:8px;white-space:nowrap;max-width:calc(100vw - 24px);">
+  <span>📲 アプリとして追加</span>
+  <button type="button" id="pwaInstallBtn" style="border:none;border-radius:999px;background:#d6b45f;color:#1a1405;font-size:14px;font-weight:700;padding:8px 16px;cursor:pointer;">追加</button>
+  <button type="button" id="pwaInstallClose" aria-label="閉じる" style="border:none;background:transparent;color:#ece7d8;font-size:16px;padding:6px 10px;cursor:pointer;">✕</button>
+</div>
+<script>
+(function () {
+  var deferred = null;
+  var bar = document.getElementById('pwaInstallBar');
+  function hide() { bar.style.display = 'none'; }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferred = e;
+    // PCでは出さない（スマホ・タブレットだけ）
+    if (!/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)) return;
+    try { if (sessionStorage.getItem('pwaInstallClosed')) return; } catch (err) {}
+    bar.style.display = 'flex';
+  });
+  document.getElementById('pwaInstallBtn').addEventListener('click', function () {
+    if (!deferred) return;
+    hide();
+    deferred.prompt();
+    deferred.userChoice.then(function () { deferred = null; }, function () { deferred = null; });
+  });
+  document.getElementById('pwaInstallClose').addEventListener('click', function () {
+    hide();
+    try { sessionStorage.setItem('pwaInstallClosed', '1'); } catch (err) {}
+  });
+  window.addEventListener('appinstalled', function () { hide(); deferred = null; });
+
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !standalone) {
+    var key = 'iosA2hsClosed:' + location.pathname;
+    var closed = false;
+    try { closed = !!localStorage.getItem(key); } catch (err) {}
+    if (!closed) {
+      var ios = document.createElement('div');
+      ios.id = 'pwaIosBar';
+      ios.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#161b25;border:1px solid #d6b45f;color:#ece7d8;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.5);padding:10px 8px 10px 14px;font-size:13px;font-weight:600;line-height:1.5;display:flex;align-items:center;gap:8px;';
+      var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|Line\//.test(ua);
+      ios.innerHTML = '<span style="flex:1;">📲 アプリとして追加するには<br>' +
+        (isSafari ? '共有ボタン（□↑）、または右下の「…」→「共有」→「ホーム画面に追加」（「Webアプリとして開く」はオンのまま）' : 'Safariでこのページを開き、共有ボタン（□↑）、または右下の「…」→「共有」→「ホーム画面に追加」') +
+        '</span><button type="button" aria-label="閉じる" style="border:none;background:transparent;color:#ece7d8;font-size:16px;padding:6px 10px;cursor:pointer;">✕</button>';
+      ios.querySelector('button').addEventListener('click', function () {
+        ios.remove();
+        try { localStorage.setItem(key, '1'); } catch (err) {}
+      });
+      document.body.appendChild(ios);
+    }
+  }
+})();
+</script>
+</body>
+</html>

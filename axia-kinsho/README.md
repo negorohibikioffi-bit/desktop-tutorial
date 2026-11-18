@@ -38,11 +38,21 @@ Supabase → **SQL Editor** → New query に、**次の順で1本ずつ**貼っ
 1. `supabase/migrations/000_base.sql`（案件テーブル・設定・最初の項目）
 2. `supabase/migrations/001_mail_log.sql`（メール履歴）
 3. `supabase/migrations/002_stage_fields.sql`（進捗メール9種類ぶんの日付項目。足りんものだけ追加）
+4. `supabase/migrations/003_auth.sql`（**ログインした人だけがデータを読み書きできるようにする**。手順1.5のユーザーを作ってから）
 
 どちらも「Success」と出ればOK（再実行しても壊れん）。
 
 > 最初の項目は 物件名／号室／申込日／承認日／契約日／金消予定日／決済日／銀行／賃貸管理／建物管理。
 > アプリの ⚙ から、名前・順番・追加・削除をいつでも変えられる。
+
+## 手順1.5：ログイン用のユーザーを作る（必須）
+アプリは**ログインしたチームだけ**が使える（キーや URL が公開されても、データは守られる）。
+1. Supabase → **Authentication → Users → Add user → Create new user**
+   - Email と Password を入力（Password は強いものを）。**「Auto Confirm User」にチェック**。
+   - 3人で使うなら、人数ぶん作る（または共用のアカウント1つ）。
+2. **Authentication → Sign In / Providers**（または Settings）で、**「Allow new users to sign up」をオフ**にして保存（知らん人が勝手に登録できんようにする）。
+3. 上の手順1の `003_auth.sql` を実行。
+> ログインのメールアドレスとパスワードは、チーム内だけで共有。アプリの ⚙ 設定の一番下からログアウトできる。
 
 ## 手順2：メールを読む関数を入れる（ダッシュボードだけでOK）
 1. 左メニュー **Edge Functions → Deploy a new function → Via Editor**。
@@ -75,8 +85,14 @@ curl -X POST "https://<プロジェクトID>.supabase.co/functions/v1/mail-inges
 ---
 
 ## 手順4：アプリを公開して、スマホに入れる
-1. `axia-kinsho/` フォルダの中身（`config.js` 書き換え後）を、**https の**静的ホスティング（Netlify Drop / Cloudflare Pages / GitHub Pages など）に置く。
-   - 例：Netlify Drop にフォルダごとドラッグ。
+**GitHub Pages で公開（このリポジトリの `docs/` フォルダ）**
+1. GitHub のリポジトリ → **Settings → Pages**
+2. **Source：Deploy from a branch** → Branch：`claude/focused-wright-jh9of9`（のちに `main` に統合したら `main`）、フォルダ：**/docs** → Save。
+3. 1〜2分後、`https://negorohibikioffi-bit.github.io/desktop-tutorial/` で開ける。
+   - ※ **手順1.5（ログイン）を済ませてから公開すること。**
+   - アプリを更新したら：`cd axia-kinsho && npm run build && npm run pages`（`docs/` が作り直される）→ コミット＆プッシュ。
+
+（ほかの静的ホスティングでもよい：Netlify Drop に `axia-kinsho/` フォルダごとドラッグ、など）
 2. スマホでそのURLを開く。
    - **Android (Chrome)**：上に出る「📲 アプリとして追加」→「追加」。
    - **iPhone (Safari)**：共有ボタン →「ホーム画面に追加」。

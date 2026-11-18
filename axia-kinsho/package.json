@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node build.mjs",
     "serve": "python3 -m http.server 8080",
-    "bundle-fn": "node scripts/bundle-fn.mjs"
+    "bundle-fn": "node scripts/bundle-fn.mjs",
+    "pages": "node scripts/publish-docs.mjs"
   },
   "devDependencies": {
     "@babel/standalone": "7.26.4"
