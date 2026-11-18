@@ -79,7 +79,7 @@ const STABLE = 'axia_kinsho_auto_settings';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== イースターエッグ：ロゴを1.5秒以内に3回押すと画像が出る（タップで閉じる） ===== */
-const EGG_IMAGE = 'egg.png';   // 同じフォルダに置いた画像のファイル名（変えるならここ）
+const EGG_IMAGE = 'egg.webp';   // 同じフォルダに置いた画像のファイル名（変えるならここ）
 let eggCount = 0, eggTimer = null;
 const eggTap = () => {
   eggCount += 1;
