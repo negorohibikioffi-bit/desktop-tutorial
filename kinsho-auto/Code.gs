@@ -52,13 +52,24 @@ function searchThreads_(query) {
       getSig: function () { return String(th.historyId); },
       getMessages: function () {
         if (!cache) {
-          const full = Gmail.Users.Threads.get('me', th.id, { format: 'full' });
+          const full = withRetry_(function () { return Gmail.Users.Threads.get('me', th.id, { format: 'full' }); });
           cache = (full.messages || []).map(wrapMessage_);
+          Utilities.sleep(200);   // 1分あたりの上限対策: 1通ごとに少し待つ
         }
         return cache;
       },
     };
   });
+}
+/** 上限エラー(Quota exceeded)のときは待ってやり直す */
+function withRetry_(fn) {
+  for (let i = 0; ; i++) {
+    try { return fn(); }
+    catch (e) {
+      if (i >= 4 || !/quota|rate limit|userRateLimit/i.test(String(e))) throw e;
+      Utilities.sleep(20000 * (i + 1));
+    }
+  }
 }
 function wrapMessage_(gm) {
   const headers = {};
@@ -103,15 +114,22 @@ function notifyNewApplications() {
   const threads = searchThreads_(QUERY + ' after:' + fromSec);
 
   const items = [], sigs = {};
+  let readFailed = false;
   threads.forEach(function (t) {
+    if (readFailed) return;
     const tid = t.getId(), sig = t.getSig();
     if (props.getProperty('TS_' + tid) === sig) return;
-    sigs[tid] = sig;
-    t.getMessages().forEach(function (m) {
-      if (m.getDate().getTime() / 1000 < startSec) return;
-      if (props.getProperty('DONE_' + m.getId())) return;
-      items.push({ msg: m, tid: tid });
-    });
+    try {
+      t.getMessages().forEach(function (m) {
+        if (m.getDate().getTime() / 1000 < startSec) return;
+        if (props.getProperty('DONE_' + m.getId())) return;
+        items.push({ msg: m, tid: tid });
+      });
+      sigs[tid] = sig;
+    } catch (e) {
+      Logger.log('Gmailの読み込みが上限に達しました。ここまでを処理します。もう一度実行すると続きから進みます: ' + e);
+      readFailed = true;
+    }
   });
   items.sort(function (a, b) { return a.msg.getDate() - b.msg.getDate(); });
 
