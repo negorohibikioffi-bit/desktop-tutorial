@@ -5,12 +5,14 @@ const {
   useRef,
   useCallback
 } = React;
-const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycWRvb3JvbHd2amx3dWF0bGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODYwMDksImV4cCI6MjA5Mzc2MjAwOX0.TMdTX0a3c7weNqgmW_IrRGlnV7VfWeAZrktc5M5qh98';
+const CFG = window.KINSHO_CONFIG || {};
+const SUPABASE_URL = CFG.supabaseUrl || '';
+const SUPABASE_KEY = CFG.supabaseAnonKey || '';
 const TABLE = 'axia_kinsho';
 const STABLE = 'axia_kinsho_settings';
 const MTABLE = 'axia_kinsho_mail_log';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const CONFIGURED = /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(SUPABASE_URL) && SUPABASE_KEY.length > 40;
+const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
 const NAVY = '#ece7d8',
   GOLD = '#d6b45f',
@@ -3191,4 +3193,26 @@ tr.band { page-break-after:avoid; }
     }
   }, toast.m));
 }
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+function NotConfigured() {
+  return React.createElement("div", {
+    style: {
+      maxWidth: 520,
+      margin: '0 auto',
+      padding: '60px 20px',
+      lineHeight: 1.9
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 700,
+      color: GOLD,
+      marginBottom: 12
+    }
+  }, "\u63A5\u7D9A\u5148\u304C\u307E\u3060\u8A2D\u5B9A\u3055\u308C\u3068\u3089\u3093"), React.createElement("div", {
+    style: {
+      fontSize: 14,
+      color: SUBTXT
+    }
+  }, React.createElement("b", null, "config.js"), " \u306B\u3001Supabase \u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E ", React.createElement("b", null, "Project URL"), " \u3068 ", React.createElement("b", null, "anon \u30AD\u30FC"), " \u3092\u66F8\u3044\u3066\u306D\u3002", React.createElement("br", null), "\uFF08Supabase \u2192 Project Settings \u2192 API \u306B\u51FA\u3068\u308B\u3002\u624B\u9806\u306F README \u306E\u300C\u624B\u98060\u300D\uFF09"));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(CONFIGURED ? React.createElement(App, null) : React.createElement(NotConfigured, null));

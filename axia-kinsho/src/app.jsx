@@ -1,12 +1,15 @@
 const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
 
 /* ===== Supabase ===== */
-const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycWRvb3JvbHd2amx3dWF0bGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODYwMDksImV4cCI6MjA5Mzc2MjAwOX0.TMdTX0a3c7weNqgmW_IrRGlnV7VfWeAZrktc5M5qh98';
+// 接続先は config.js に書く（自分の Supabase プロジェクトの URL と anon キー）
+const CFG = window.KINSHO_CONFIG || {};
+const SUPABASE_URL = CFG.supabaseUrl || '';
+const SUPABASE_KEY = CFG.supabaseAnonKey || '';
 const TABLE = 'axia_kinsho';
 const STABLE = 'axia_kinsho_settings';
 const MTABLE = 'axia_kinsho_mail_log';     // メールで自動更新した履歴
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const CONFIGURED = /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(SUPABASE_URL) && SUPABASE_KEY.length > 40;
+const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 /* ===== 定数 ===== */
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
@@ -1616,4 +1619,15 @@ tr.band { page-break-after:avoid; }
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+function NotConfigured() {
+  return (
+    <div style={{ maxWidth: 520, margin: '0 auto', padding: '60px 20px', lineHeight: 1.9 }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: GOLD, marginBottom: 12 }}>接続先がまだ設定されとらん</div>
+      <div style={{ fontSize: 14, color: SUBTXT }}>
+        <b>config.js</b> に、Supabase プロジェクトの <b>Project URL</b> と <b>anon キー</b> を書いてね。<br />
+        （Supabase → Project Settings → API に出とる。手順は README の「手順0」）
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(CONFIGURED ? <App /> : <NotConfigured />);

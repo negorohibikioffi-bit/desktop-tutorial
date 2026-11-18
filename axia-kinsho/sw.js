@@ -8,7 +8,7 @@ const VER = 'kinsho-v14.0.0';
 const SHELL = [
   './', 'index.html', 'app.js?v=14.0.0', 'manifest.webmanifest',
   'vendor/react.production.min.js', 'vendor/react-dom.production.min.js',
-  'vendor/supabase.js', 'vendor/591.supabase.js',
+  'vendor/supabase.js', 'vendor/591.supabase.js', 'config.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png', 'icons/favicon.png',
 ];
 
