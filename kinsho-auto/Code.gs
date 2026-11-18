@@ -29,17 +29,20 @@ const OPEN_SUFFIX = '（オープン）';
  * main:true は設定の mainKey(金消予定日)。マッチする項目がアプリに無ければその値は無視される。
  */
 const MAP = [
-  { tag: '決済予定', main: true },
-  { tag: '契約予定', label: /契約/ },
-  { tag: '持込予定', label: /持込|承認/ },
-  { tag: '銀行',     label: /銀行/ },
-  { tag: '物件',     label: /物件/ },
-  { tag: '諸費用ローン', label: /諸費用/ },
-  { tag: '担当',     label: /担当/ },
-  { tag: '同行',     label: /同行/ },
-  { tag: '立会',     label: /立会/ },
-  { tag: '所属',     label: /所属/ },
-  { tag: '備考',     label: /備考/ },
+  { tags: ['決済予定'], main: true },
+  { tags: ['契約予定'],             label: /^契約/ },
+  { tags: ['承認日', '承認予定', '持込予定'], label: /^承認/ },
+  { tags: ['物件名'],               label: /^物件名/, option: 'add' },   // 新しい物件名は選択肢に自動追加
+  { tags: ['号室'],                 label: /^部屋/ },
+  { tags: ['銀行'],                 label: /^銀行/, option: 'match' },    // 楽天銀行→楽天 など選択肢に寄せる
+  { tags: ['立会'],                 label: /^立会/, option: 'add' },
+  { tags: ['物件登録'],             label: /^物件登録/, option: 'match' },
+  { tags: ['登記依頼'],             label: /^登記依頼/, option: 'match' },
+  { tags: ['減額'],                 label: /^減額/, option: 'match' },
+  { tags: ['担当'],                 label: /^担当/ },
+  { tags: ['同行'],                 label: /^同行/ },
+  { tags: ['建物管理'],             label: /^建物管理/ },
+  { tags: ['賃貸管理'],             label: /^賃貸管理/ },
 ];
 
 // ===== Gmail API(高度なサービス)で読む =====
@@ -142,6 +145,7 @@ function notifyNewApplications() {
     const isReply = /^\s*(re|fw|fwd|返信|転送)\s*[:：]/i.test(subject) && !/訂正|振替/.test(subject);
     if (isReply || !fields['顧客名']) { props.setProperty('DONE_' + msg.getId(), String(nowSec)); continue; }
     apply_(msg, fields, st);
+    saveSettingsIfDirty_(st);
     props.setProperty('DONE_' + msg.getId(), String(nowSec));
     handled++;
   }
@@ -190,24 +194,41 @@ function apply_(msg, f, st) {
 function mapFields_(f, st, mailDate) {
   const t = {};
   Object.keys(f).forEach(function (k) { t[k] = f[k]; });
-  let property = f['物件名'] || '';
-  if (f['号室'] && property.indexOf(f['号室']) === -1) property += f['号室'];
-  t['物件'] = property;
+  // 物件名に部屋番号が付いていて【号室】が無いときは分ける(複数物件「／」は分けない)
+  if (t['物件名'] && !t['号室'] && t['物件名'].indexOf('／') < 0) {
+    const m = t['物件名'].match(/^(.*?)[\s　]*([0-9０-９]{2,4})\s*(?:号室|号)?\s*$/);
+    if (m) { t['物件名'] = m[1].trim(); t['号室'] = m[2]; }
+  }
+  if (t['号室']) t['号室'] = String(t['号室']).replace(/号室|号/g, '').trim();
   const out = {};
   MAP.forEach(function (r) {
-    const v = t[r.tag];
+    let v = null;
+    for (let i = 0; i < r.tags.length && (v == null || v === ''); i++) v = t[r.tags[i]];
     if (v == null || v === '' || /^[-－ー―—–\s]*$/.test(v)) return;
     const fld = r.main ? st.fields.filter(function (x) { return x.key === st.mainKey; })[0]
                        : st.fields.filter(function (x) { return r.label.test(x.label || ''); })[0];
     if (!fld) return;
-    out[fld.key] = convert_(fld, v, mailDate);
+    const val = convert_(fld, v, mailDate, r.option, st);
+    if (val !== '' && val != null) out[fld.key] = val;
   });
   return out;
 }
-function convert_(fld, v, mailDate) {
+function convert_(fld, v, mailDate, option, st) {
   const d = parseDate_(v, mailDate);
   if (fld.type === 'datetime') return { d: d || '', t: '', none: false };
   if (fld.type === 'date') return d || '';
+  if (fld.type === 'select' && option) return pickOption_(fld, v, option, st);
+  return v;
+}
+/** 選択肢に寄せる: 「楽天銀行」→「楽天」。無ければ、option==='add' なら選択肢に追加、'match' なら元の文字のまま */
+function pickOption_(fld, v, option, st) {
+  const nv = norm_(v);
+  const opts = fld.options || [];
+  for (let i = 0; i < opts.length; i++) {
+    const no = norm_(opts[i]);
+    if (no && (nv === no || nv.indexOf(no) >= 0 || (no.length >= 4 && no.indexOf(nv) >= 0))) return opts[i];
+  }
+  if (option === 'add') { fld.options = opts.concat([v]); st.dirty = true; }
   return v;
 }
 function parseDate_(v, base) {
@@ -237,8 +258,15 @@ function sb_(path, opt) {
 }
 function loadSettings_() {
   const rows = sb_(STABLE + '?id=eq.1&select=settings');
-  const s = (rows[0] && rows[0].settings) || {};
-  return { mainKey: s.mainKey || 'kinsho', fields: s.fields || [] };
+  const raw = (rows[0] && rows[0].settings) || {};
+  return { raw: raw, mainKey: raw.mainKey || 'kinsho', fields: raw.fields || [], dirty: false };
+}
+/** 選択肢が増えたときだけ、設定を保存(アプリの選択肢に反映される) */
+function saveSettingsIfDirty_(st) {
+  if (!st.dirty) return;
+  st.raw.fields = st.fields;
+  sb_(STABLE + '?id=eq.1', { method: 'patch', payload: JSON.stringify({ settings: st.raw, updated_at: new Date().toISOString() }) });
+  st.dirty = false;
 }
 /** 同じ顧客の行(新しい順)。「（オープン）」済みは除く。「島津」と「島津大輔」のような名前の長さ違いも同一扱い */
 function rowsOf_(cust) {
