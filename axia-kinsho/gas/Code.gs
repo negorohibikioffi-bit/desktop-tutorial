@@ -19,6 +19,17 @@ const CONFIG = {
   MAX_THREADS: 30,
 };
 
+// Gmail の検索は「【】」の記号を区別できんので、検索で大まかに拾ったあと、ここで厳密に絞る。
+//  ① 件名が「【種類】…」で始まる（種類＝アプリのプルダウンの9つ）
+//  ② 電子契約（クラウドサイン／GMOサイン）・GATES からのメール
+//  ③ 件名に「決済」を含む
+const STAGE_RE = /^\s*(?:(?:re|fw|fwd)\s*[:：]\s*)*[【\[]\s*(事前承認|本承認|申込|契約|電話面談|金消|物件振替|物件確定|オープン)/i;
+const TRUSTED_FROM_RE = /cloudsign\.jp|gmosign\.com|gatestokyo\.co\.jp/i;
+function wanted_(msg) {
+  const subject = msg.getSubject() || '';
+  return STAGE_RE.test(subject) || TRUSTED_FROM_RE.test(msg.getFrom()) || /決済/.test(subject);
+}
+
 // 合言葉は、コードに直書きせず「スクリプト プロパティ」に入れる（README 手順3-3）
 function secret_() {
   const s = PropertiesService.getScriptProperties().getProperty('INGEST_SECRET');
@@ -42,6 +53,7 @@ function processMails() {
       for (const msg of th.getMessages()) {
         const id = msg.getId();
         if (doneSet.has(id)) continue;
+        if (!wanted_(msg)) continue;                                  // 件名が対象の形でないメールは送らん
         if (msg.getFrom().toLowerCase().indexOf(me) !== -1) { doneSet.add(id); continue; }   // 自分が送ったメールは対象外
 
         const res = UrlFetchApp.fetch(CONFIG.ENDPOINT, {
@@ -81,6 +93,9 @@ function setup() {
 function dryRun() {
   const threads = GmailApp.search(CONFIG.QUERY, 0, CONFIG.MAX_THREADS);
   let n = 0;
-  threads.forEach(th => th.getMessages().forEach(m => { n++; console.log(m.getDate() + ' | ' + m.getFrom() + ' | ' + m.getSubject()); }));
-  console.log('対象：' + n + ' 通（想定外のメールが混ざっとったら QUERY を絞る）');
+  let skipped = 0;
+  threads.forEach(th => th.getMessages().forEach(m => {
+    if (wanted_(m)) { n++; console.log('送る  | ' + m.getDate() + ' | ' + m.getFrom() + ' | ' + m.getSubject()); } else { skipped++; }
+  }));
+  console.log('送る対象：' + n + ' 通 ／ 形が違うので送らん：' + skipped + ' 通');
 }
