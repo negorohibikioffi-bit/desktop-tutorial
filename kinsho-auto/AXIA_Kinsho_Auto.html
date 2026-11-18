@@ -7,7 +7,7 @@
 <title>金消予定日 一覧 | AXIA JAPAN</title>
 <!-- スマホのホーム画面に追加したとき、アプリとして開くための設定 -->
 <link rel="manifest" href="AXIA_Kinsho.webmanifest">
-<meta name="theme-color" content="#1e2a4a">
+<meta name="theme-color" content="#111111">
 <link rel="icon" href="kinsho/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="kinsho/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-title" content="金消予定日">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&family=Dela+Gothic+One&display=swap" rel="stylesheet">
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -29,6 +29,30 @@
   /* ブラウザ標準の小さいカレンダー/時計アイコンは消して、自前の大きいボタンに一本化する */
   input[type=date]::-webkit-calendar-picker-indicator,
   input[type=time]::-webkit-calendar-picker-indicator { display:none; -webkit-appearance:none; }
+
+  /* ===== ペルソナ風テーマ（黒×赤×白・斜め・ベタ影） ===== */
+  :root { --p5red:#e60012; --p5black:#111; }
+  body { background:#ececec;
+    background-image: radial-gradient(rgba(0,0,0,.07) 1.2px, transparent 1.4px), linear-gradient(115deg, transparent 0 62%, rgba(230,0,18,.07) 62% 70%, transparent 70%);
+    background-size: 9px 9px, 100% 100%; background-attachment: fixed; }
+  ::selection { background:var(--p5red); color:#fff; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--p5red); }
+  [data-sticky-bar] { border-bottom:4px solid var(--p5red);
+    clip-path: polygon(0 0,100% 0,100% calc(100% - 8px),97% 100%,0 100%); padding-bottom:20px !important; }
+  [data-sticky-bar]::before { content:""; position:absolute; right:-20px; top:0; width:42%; height:100%;
+    background:var(--p5red); transform:skewX(-24deg); opacity:.9; z-index:0; pointer-events:none; }
+  [data-sticky-bar] > * { position:relative; z-index:1; }
+  [data-sticky-bar] > div:first-child > div:first-child > div:first-child {
+    font-family:'Dela Gothic One','Noto Sans JP',sans-serif; font-size:21px !important; font-weight:400 !important;
+    letter-spacing:.04em; transform:skewX(-8deg); transform-origin:left; text-shadow:3px 3px 0 var(--p5red); }
+  [data-sticky-bar] > div:first-child > div:first-child > div:last-child { letter-spacing:.14em; text-transform:uppercase; opacity:.85 !important; }
+  #root button, #root select { border-radius:2px !important; }
+  #root [data-sticky-bar] button { border:2px solid #fff !important; background:#111 !important; color:#fff; transform:skewX(-8deg); }
+  #root [data-sticky-bar] select { border:2px solid #fff !important; background:#111 !important; font-family:'Dela Gothic One','Noto Sans JP',sans-serif; font-weight:400 !important; letter-spacing:.06em; }
+  #root [data-sticky-bar] input { border:2px solid #fff !important; background:#111 !important; border-radius:2px !important; }
+  .p5-card { border:2px solid var(--p5black) !important; border-radius:2px !important; box-shadow:5px 5px 0 var(--p5red) !important; }
+  .p5-card > div:first-child { border-radius:0 !important; }
+  @media print { body { background:#fff !important; } [data-sticky-bar]::before { display:none; } }
   input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; color:#1e2a4a; color-scheme: light; }
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -51,7 +75,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== 定数 ===== */
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
-const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec', SUB = '#6b7280';
+const NAVY = '#111111', GOLD = '#e60012', LINE = '#cfcfcf', SUB = '#5c5c5c';   // ペルソナ風：黒×赤
 const SUBTXT = '#33405e';              // カードの氏名・銀行など（濃いめ）
 const KINSHO_PINK = { bg: '#fdeaf3', bd: '#f0b8d6', fg: '#9c2b63' };  // 金消日バッジは期日に関係なくピンク固定
 // 承認・契約・金消の日付バッジは項目ごとに色を分ける（進捗の丸と同じ系統の色）
@@ -415,7 +439,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
   return (
-    <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
+    <div className="p5-card" style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
       <div ref={headRef} onClick={toggle} style={{ padding: open ? '10px 14px' : '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
         // 開いとる間は「物件名 ／ 名前」の1行だけを紺色ヘッダーのすぐ下に固定して、入力欄が見える範囲を広く取る
         ...(open ? { position: 'sticky', top: 'var(--barH, 0px)', zIndex: 5, background: '#fff', borderRadius: '12px 12px 0 0', borderBottom: `1px solid ${LINE}`, boxShadow: '0 4px 8px -6px rgba(30,42,74,.25)' } : {}) }}>
