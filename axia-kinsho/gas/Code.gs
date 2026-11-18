@@ -30,7 +30,7 @@ const CONFIG = {
 //  ① 件名が「【種類】…」で始まる（種類＝アプリのプルダウンの9つ）
 //  ② 電子契約（クラウドサイン／GMOサイン）・GATES からのメール
 //  ③ 件名に「決済」を含む
-const STAGE_RE = /^\s*(?:(?:re|fw|fwd)\s*[:：]\s*)*[【\[]\s*(事前承認|本承認|申込|契約|電話面談|金消|物件振替|物件確定|オープン)/i;
+const STAGE_RE = /^\s*(?:(?:re|fw|fwd|再送|訂正|修正)\s*[:：]?\s*)*[【\[]\s*(事前承認|本承認|申込|契約|電話面談|金消|物件振替|物件確定|オープン)/i;
 const TRUSTED_FROM_RE = /cloudsign\.jp|gmosign\.com|gatestokyo\.co\.jp/i;
 function wanted_(msg) {
   const subject = msg.getSubject() || '';

@@ -130,3 +130,16 @@ console.log('stage tests: all passed');
 assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1', body: '', dateIso: '2026-11-18' }, ALL) as any).dateIsFallback, true);
 assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1 11/20', body: '', dateIso: '2026-11-18' }, ALL) as any).dateIsFallback, false);
 console.log('fallback tests: all passed');
+
+// ---- 実際に届いた「訂正メール」----
+import { findSimilar } from './logic.ts';
+const D4: any = [{ key: 'bukken', label: '物件名', type: 'text' }, { key: 'room', label: '号室', type: 'text' }, { key: 'honsho', label: '本承認日', type: 'date' }];
+let c: any = ruleExtract({ from: 'a@b.jp', subject: '再送【本承認】グラン・リーヴェル川崎WEST 701　※物件名に誤りがありました', body: '', dateIso: '2026-11-18' }, D4);
+assert.equal(c.application.bukken, 'グラン・リーヴェル川崎WEST'); assert.equal(c.application.room, '701'); assert.equal(c.application.correction, true);
+assert.equal(c.updates[0].key, 'honsho');
+c = ruleExtract({ from: 'a@b.jp', subject: '【本承認】グラン・リヴェール川崎WEST 701', body: '', dateIso: '2026-11-18' }, D4);
+assert.equal(c.application.correction, false);
+const sim = findSimilar([{ id: 4, fields: { bukken: 'グラン・リヴェール川崎WEST', room: '701' } }, { id: 8, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '701' } }], { bukkenKey: 'bukken', roomKey: 'room', bukken: 'グラン・リーヴェル川崎WEST', room: '701' });
+assert.equal(sim!.id, 4);                                   // 似た名前＋同じ号室だけ。別物件は選ばん
+assert.equal(findSimilar([{ id: 8, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '701' } }], { bukkenKey: 'bukken', roomKey: 'room', bukken: 'グラン・リーヴェル川崎WEST', room: '701' }), null);
+console.log('correction tests: all passed');

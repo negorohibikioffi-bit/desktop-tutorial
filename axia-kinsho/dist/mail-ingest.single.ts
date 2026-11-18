@@ -169,6 +169,7 @@ type RuleResult = {
   application?: {
     bukkenKey: string; roomKey: string; bukken: string; room: string;
     create: Record<string, unknown>;          // 新規作成するときの初期値（key → 保存形式の値）
+    correction: boolean;                      // 「再送」「訂正」など、前のメールの物件名の誤りを直すメールか
   };
 };
 
@@ -221,10 +222,11 @@ function ruleExtract(
   const from = m.from.toLowerCase();
 
   // 0) 進捗メール：件名が「【種類】物件名 号室」（種類は STAGES の9つ）
-  const sm = subject.match(new RegExp(`^\\s*(?:(?:re|fw|fwd)\\s*:\\s*)*[【\\[]\\s*(${STAGES.map((s) => s.name).join('|')})(?:完了|報告|のご報告|のお知らせ)?\\s*[】\\]]\\s*(.+?)\\s*$`, 'i'));
+  const sm = subject.match(new RegExp(`^\\s*(?:(?:re|fw|fwd|再送|訂正|修正)\\s*[:：]?\\s*)*[【\\[]\\s*(${STAGES.map((s) => s.name).join('|')})(?:完了|報告|のご報告|のお知らせ)?\\s*[】\\]]\\s*(.+?)\\s*$`, 'i'));
   if (sm) {
     const stage = STAGES.find((s) => s.name === sm[1])!;
-    let rest = sm[2];
+    const isCorrection = /再送|訂正|修正|誤り|間違/.test(subject);   // 物件名などの訂正メール
+    let rest = sm[2].split(/[※＊*]/)[0].trim();                  // 末尾の「※物件名に誤りがありました」などの注記は物件名に含めん
     // 件名の末尾に日付（時刻）が付いとれば、それを日付として使う
     const subjDate = parseDateTime(rest.match(/(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/)?.[0] ?? '', m.dateIso);
     rest = rest.replace(/[\s\u3000]*(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/, '');
@@ -247,7 +249,7 @@ function ruleExtract(
       propertyText: subject,
       updates: af && dt ? [{ key: af.key, date: dt.d, time: dt.t || undefined }] : [],
       dateIsFallback: !subjDate && !bodyDate,
-      application: { bukkenKey: bf.key, roomKey: rf?.key ?? '', bukken, room, create },
+      application: { bukkenKey: bf.key, roomKey: rf?.key ?? '', bukken, room, create, correction: isCorrection },
     };
   }
 
@@ -301,6 +303,22 @@ function findExisting<T extends { id: number; fields?: Record<string, unknown> }
     if (norm(String(f[a.bukkenKey] ?? '')) !== norm(a.bukken)) return false;
     if (a.room && a.roomKey && norm(String(f[a.roomKey] ?? '')) !== norm(a.room)) return false;
     return true;
+  });
+  return hit.length ? hit.reduce((x, y) => (y.id > x.id ? y : x)) : null;
+}
+
+const bigrams = (s: string) => { const a = norm(s), out = new Set<string>(); for (let i = 0; i < a.length - 1; i++) out.add(a.slice(i, i + 2)); return out; };
+const jaccard = (x: Set<string>, y: Set<string>) => { let n = 0; x.forEach((v) => { if (y.has(v)) n++; }); const u = x.size + y.size - n; return u ? n / u : 0; };
+
+/** 訂正メール用：号室が同じで、物件名がよく似た既存カードを探す（誤った名前で作られたカードを見つける）。複数なら新しい方 */
+function findSimilar<T extends { id: number; fields?: Record<string, unknown> }>(
+  rows: T[], a: { bukkenKey: string; roomKey: string; bukken: string; room: string },
+): T | null {
+  if (!a.room || !a.roomKey) return null;
+  const me = bigrams(a.bukken);
+  const hit = rows.filter((r) => {
+    const f = r.fields ?? {};
+    return norm(String(f[a.roomKey] ?? '')) === norm(a.room) && jaccard(me, bigrams(String(f[a.bukkenKey] ?? ''))) >= 0.6;
   });
   return hit.length ? hit.reduce((x, y) => (y.id > x.id ? y : x)) : null;
 }
@@ -451,6 +469,19 @@ Deno.serve(async (req) => {
       let existing: typeof rows[number] | null = null;
       if (rule.application) {
         existing = findExisting(rows, rule.application);
+        // 「再送」「訂正」メール：同じ号室で名前のよく似たカードがあれば、物件名の誤りを直す候補にする（自動では直さず「要確認」へ）
+        if (!existing && rule.application.correction) {
+          const sim = findSimilar(rows, rule.application);
+          if (sim) {
+            existing = sim;
+            rule.updates = [{ key: rule.application.bukkenKey, text: rule.application.bukken }, ...rule.updates];
+            rule.reason += '（物件名の訂正：既存カードの名前を直す）';
+          }
+        }
+        if (!existing && rule.application.correction) {
+          await log({ status: 'review', proposed: { fields: rule.application.create }, summary: `訂正メールだが対応するカードが見つからん（${rule.application.bukken}）。手動で確認してね` });
+          return json({ ok: true, status: 'review' });
+        }
         if (!existing) {
           const a = rule.application;
           const mailMonth = /^\d{4}-\d{2}/.test(String(p.date ?? '')) ? String(p.date).slice(0, 7) : jstToday().iso.slice(0, 7);
@@ -470,7 +501,7 @@ Deno.serve(async (req) => {
       // 日付が受信日の代用でしかないときは、すでに入っとる日付を上書きせん（再送メールで最初の日付が消えんように）
       if (existing && rule.dateIsFallback) {
         const cur = (existing.fields ?? {}) as Record<string, unknown>;
-        rule.updates = rule.updates.filter((u) => !cur[u.key] || (typeof cur[u.key] === 'object' && !(cur[u.key] as { d?: string }).d));
+        rule.updates = rule.updates.filter((u) => (rule.application && u.key === rule.application.bukkenKey) || !cur[u.key] || (typeof cur[u.key] === 'object' && !(cur[u.key] as { d?: string }).d));
       }
       const pick = existing ? { row: existing, hits: 2, unique: true } : pickRow(rows, defs, rule.propertyText);
       r = {

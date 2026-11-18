@@ -14,7 +14,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
-  buildChanges, compactRows, describe, findExisting, identityHits, jstToday, monthRange, pickRow, ruleExtract,
+  buildChanges, compactRows, describe, findExisting, findSimilar, identityHits, jstToday, monthRange, pickRow, ruleExtract,
   type FieldDef, type Update,
 } from './logic.ts';
 
@@ -163,6 +163,19 @@ Deno.serve(async (req) => {
       let existing: typeof rows[number] | null = null;
       if (rule.application) {
         existing = findExisting(rows, rule.application);
+        // 「再送」「訂正」メール：同じ号室で名前のよく似たカードがあれば、物件名の誤りを直す候補にする（自動では直さず「要確認」へ）
+        if (!existing && rule.application.correction) {
+          const sim = findSimilar(rows, rule.application);
+          if (sim) {
+            existing = sim;
+            rule.updates = [{ key: rule.application.bukkenKey, text: rule.application.bukken }, ...rule.updates];
+            rule.reason += '（物件名の訂正：既存カードの名前を直す）';
+          }
+        }
+        if (!existing && rule.application.correction) {
+          await log({ status: 'review', proposed: { fields: rule.application.create }, summary: `訂正メールだが対応するカードが見つからん（${rule.application.bukken}）。手動で確認してね` });
+          return json({ ok: true, status: 'review' });
+        }
         if (!existing) {
           const a = rule.application;
           const mailMonth = /^\d{4}-\d{2}/.test(String(p.date ?? '')) ? String(p.date).slice(0, 7) : jstToday().iso.slice(0, 7);
@@ -182,7 +195,7 @@ Deno.serve(async (req) => {
       // 日付が受信日の代用でしかないときは、すでに入っとる日付を上書きせん（再送メールで最初の日付が消えんように）
       if (existing && rule.dateIsFallback) {
         const cur = (existing.fields ?? {}) as Record<string, unknown>;
-        rule.updates = rule.updates.filter((u) => !cur[u.key] || (typeof cur[u.key] === 'object' && !(cur[u.key] as { d?: string }).d));
+        rule.updates = rule.updates.filter((u) => (rule.application && u.key === rule.application.bukkenKey) || !cur[u.key] || (typeof cur[u.key] === 'object' && !(cur[u.key] as { d?: string }).d));
       }
       const pick = existing ? { row: existing, hits: 2, unique: true } : pickRow(rows, defs, rule.propertyText);
       r = {
