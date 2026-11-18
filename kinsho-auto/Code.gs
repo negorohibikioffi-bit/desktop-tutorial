@@ -18,7 +18,7 @@ const SUPABASE_KEY = 'sb_publishable_VXflIxa8nyBLGpzv8SFHOA_d_qL4_1Z';
 const TABLE = 'axia_kinsho_auto';
 const STABLE = 'axia_kinsho_auto_settings';
 const START_DATE = '2026-11-01T00:00:00+09:00';   // この日時以降に届いたメールだけが対象
-const QUERY = '(顧客名 OR subject:申込 OR subject:物件確定 OR subject:契約 OR subject:金消 OR subject:承認 OR subject:振替 OR subject:訂正 OR subject:オープン OR subject:新規 OR subject:買い増し OR subject:買増 OR subject:他社増し)';
+const QUERY = '(顧客名 OR "Customer Name" OR subject:申込 OR subject:物件確定 OR subject:契約 OR subject:金消 OR subject:承認 OR subject:振替 OR subject:訂正 OR subject:修正 OR subject:再送 OR subject:オープン OR subject:新規 OR subject:買い増し OR subject:買増 OR subject:他社増し OR subject:correction OR subject:contract OR subject:application OR subject:approval OR subject:open)';
 const LOOKBACK_DAYS = 30;   // 初回取込用。安定したら 7 に戻してOK
 const MAX_THREADS = 100;
 const MAX_PAGES = 5;   // 最大 100×5 = 500スレッドまで検索
@@ -163,38 +163,39 @@ function notifyNewApplications() {
   cleanup_(props, nowSec);
 }
 
-/** 1通のメールを金消アプリのテーブルに反映 */
 function apply_(msg, f, st) {
   const subject = msg.getSubject();
   const route = route_(subject, f);
   if (route === 'skip') return;
   const cust = normCust_(f['顧客名']), pk = propKey_(f);
   const name = f['顧客名'].replace(/様$/, '').trim();
-  const rows = rowsOf_(cust);
-  const sameProp = rows.filter(function (r) { return samePropKey_(r.prop, pk); })[0] || null;
+  const rows = rowsOf_(cust, pk);
+  const sameProp = rows.filter(function (r) { return samePropKey_(r.prop, pk); })[0]
+                || rows.filter(function (r) { return looseSameProp_(r.prop, pk); })[0] || null;
   const mapped = mapFields_(f, st, msg.getDate());
+  const fixFlag = isCorrection_(subject, f, introText_(msg.getPlainBody()));   // 訂正・修正・再送・Correction
+  const nameUpd = fixFlag ? name : null;                                        // 訂正のときだけ名前も直す
 
   if (route === 'open') {                       // 行は消さずに「（オープン）」表示
     const t = sameProp || (rows.length === 1 ? rows[0] : null);
     if (t) patch_(t.id, { name: t.name.replace(OPEN_SUFFIX, '') + OPEN_SUFFIX });
     return;
   }
-  if (route === 'thread') {                     // 契約・金消・承認: 該当行に追記
-    const t = sameProp || (rows.length === 1 ? rows[0] : null);
-    if (t) return update_(t, mapped, st, pk, null);
+  if (route === 'thread') {                     // 契約・金消・承認: 該当行に追記(訂正なら上書き)
+    const t = sameProp || (rows.length === 1 || fixFlag ? rows[0] : null);
+    if (t) return update_(t, mapped, st, pk, nameUpd, cust);
     return insert_(name, cust, pk, mapped, st, msg);
   }
   // main: 申込・物件確定・振替・訂正
   const kind = f['種別'] || '';
-  const transfer = /振替/.test([subject, kind, f['区分'], f['備考']].join(' '));
-  const fix = !transfer && isCorrection_(subject, f, introText_(msg.getPlainBody()));
-  const confirm = !transfer && !fix && /物件確定/.test(subject + ' ' + kind);
+  const transfer = /振替|transfer/i.test([subject, kind, f['区分'], f['備考']].join(' '));
+  const confirm = !transfer && !fixFlag && /物件確定|confirm/i.test(subject + ' ' + kind);
   let t = null;
   if (transfer) t = rows[0] || null;                                   // 振替: その顧客の最新の行
-  else if (fix) t = sameProp || rows[0] || null;
+  else if (fixFlag) t = sameProp || rows[0] || null;                   // 訂正: 同じ物件、なければその顧客の最新の行
   else if (confirm) t = rows.filter(function (r) { return !r.prop || /未定|未確定|未決定/.test(r.prop); })[0] || sameProp || null;
   else t = sameProp;                                                   // 通常の申込: 同じ物件の行があれば更新(重複防止)
-  if (t) return update_(t, mapped, st, pk, name);
+  if (t) return update_(t, mapped, st, pk, (fixFlag || transfer) ? name : null, cust);
   insert_(name, cust, pk, mapped, st, msg);
 }
 
@@ -276,22 +277,35 @@ function saveSettingsIfDirty_(st) {
   sb_(STABLE + '?id=eq.1', { method: 'patch', payload: JSON.stringify({ settings: st.raw, updated_at: new Date().toISOString() }) });
   st.dirty = false;
 }
-/** 同じ顧客の行(新しい順)。「（オープン）」済みは除く。「島津」と「島津大輔」のような名前の長さ違いも同一扱い */
-function rowsOf_(cust) {
+function rowsOf_(cust, pk) {
   const notOpen = function (r) { return String(r.name || '').indexOf(OPEN_SUFFIX) < 0; };
   let rows = sb_(TABLE + '?cust=eq.' + encodeURIComponent(cust) + '&order=id.desc').filter(notOpen);
   if (!rows.length && cust.length >= 2) {
     rows = sb_(TABLE + '?cust=like.' + encodeURIComponent(cust.slice(0, 2) + '*') + '&order=id.desc').filter(notOpen)
       .filter(function (r) { const c = r.cust || ''; return c.indexOf(cust) === 0 || cust.indexOf(c) === 0; });
   }
+  // お客様名が違う表記(ひらがな/漢字など)でも、同じ物件・部屋番号なら同じ案件として扱う
+  if (!rows.length) {
+    const d = (String(pk || '').match(/(\d{2,4})$/) || [])[1];
+    if (d) rows = sb_(TABLE + '?prop=like.' + encodeURIComponent('*' + d) + '&order=id.desc').filter(notOpen)
+      .filter(function (r) { return looseSameProp_(r.prop, pk); });
+  }
   return rows;
 }
+function looseSameProp_(a, b) {
+  if (!a || !b) return false;
+  if (samePropKey_(a, b)) return true;
+  const da = (a.match(/(\d{2,4})$/) || [])[1], db = (b.match(/(\d{2,4})$/) || [])[1];
+  if (!da || da !== db) return false;
+  for (let i = 0; i + 3 <= a.length; i++) if (b.indexOf(a.substr(i, 3)) >= 0 && !/^\d+$/.test(a.substr(i, 3))) return true;
+  return false;
+}
 function patch_(id, body) { sb_(TABLE + '?id=eq.' + id, { method: 'patch', payload: JSON.stringify(body) }); }
-function update_(row, mapped, st, pk, name) {
+function update_(row, mapped, st, pk, name, cust) {
   const fields = Object.assign({}, row.fields || {}, mapped);
   const body = { fields: fields, month: monthOf_(fields, st, row.month) };
   if (pk) body.prop = pk;
-  if (name) body.name = name;
+  if (name) { body.name = name; if (cust) body.cust = cust; }
   patch_(row.id, body);
 }
 function insert_(name, cust, pk, mapped, st, msg) {
@@ -304,11 +318,15 @@ function insert_(name, cust, pk, mapped, st, msg) {
 
 // ===== 解析(Moshikomi Notify と同じ) =====
 function parseFields_(body) {
+  const KNOWN = { '顧客名':1, '物件名':1, '号室':1, '銀行':1, '決済予定':1, '契約予定':1, '承認日':1, '持込予定':1, '担当':1, '同行':1, '所属':1, '立会':1, '種別':1, '備考':1, '区分':1 };
   const main = body.split(/\r?\n--\s*\r?\n/)[0];
   const fields = {}, freeText = [];
   main.split(/\r?\n/).forEach(function (line) {
     if (/^\s*>/.test(line)) return;
-    const m = line.match(/^\s*【([^】]+)】[ \t　]*(.*)$/);
+    // 【項目】値 / [Item] 値 / ［項目］値
+    let m = line.match(/^\s*[【\[［]([^】\]］]+)[】\]］]\s*[:：]?[ \t　]*(.*)$/);
+    // 項目：値 / Item: value (知っている項目名だけ)
+    if (!m) { const m2 = line.match(/^\s*([^:：\s【\[［]{1,24}?)\s*[:：]\s*(.+)$/); if (m2 && KNOWN[canonKey_(m2[1])]) m = m2; }
     if (m) { const k = canonKey_(m[1]); if (!(k in fields)) fields[k] = m[2].trim(); }
     else freeText.push(line);
   });
@@ -319,16 +337,28 @@ function parseFields_(body) {
   return fields;
 }
 function canonKey_(key) {
-  const k = key.replace(/\s+/g, '');
-  if (/^お客様(名前|名|氏名)$/.test(k)) return '顧客名';
+  const k = String(key).normalize('NFKC').replace(/[\s_\-.　]+/g, '').toLowerCase();
   if (/^新規.*(買い?増し?|増し?)/.test(k) || /^新規・/.test(k)) return '区分';
-  if (k === '物件名号室' || k === '物件名・号室') return '物件名';
-  if (k === '金融機関') return '銀行';
-  if (k === '所属課') return '所属';
-  if (/^契約予定(日.*)?$/.test(k)) return '契約予定';
-  if (/^持込(予定)?日?$/.test(k)) return '持込予定';
-  if (/^決済(予定)?日?$/.test(k)) return '決済予定';
-  return k;
+  if (/^物件名[・\/]?号室$/.test(k)) return '物件名';
+  const A = [
+    [/^(お客様(名前|名|氏名)?|お客さま(名)?|顧客(名|氏名)?|氏名|お名前|名前|申込者(名)?|購入者(名)?|契約者(名)?|customer(name)?|client(name)?|buyer(name)?|purchaser(name)?|fullname|name)$/, '顧客名'],
+    [/^(物件名?|マンション名|建物名|property(name)?|building(name)?)$/, '物件名'],
+    [/^(号室|部屋番号|部屋|room(no|number)?|unit(no|number)?)$/, '号室'],
+    [/^(銀行名?|金融機関(名)?|融資銀行|bank(name)?|lender)$/, '銀行'],
+    [/^(決済(予定)?(日.*)?|引渡(予定)?(日.*)?|settlement(date)?|closing(date)?)$/, '決済予定'],
+    [/^(契約(予定)?(日.*)?|contract(date)?)$/, '契約予定'],
+    [/^(承認(予定)?日?|approval(date)?)$/, '承認日'],
+    [/^(持込(予定)?日?|持ち込み(予定)?日?|bringin(date)?)$/, '持込予定'],
+    [/^(担当(者)?|営業担当|staff|incharge|personincharge)$/, '担当'],
+    [/^(同行(者)?|companion|accompaniedby)$/, '同行'],
+    [/^(所属(課|部署)?|部署|課|department|team|section)$/, '所属'],
+    [/^(立会(い)?|witness|attendance)$/, '立会'],
+    [/^(種別|種類|type|kind)$/, '種別'],
+    [/^(備考|notes?|remarks?|memo)$/, '備考'],
+    [/^(区分|category)$/, '区分'],
+  ];
+  for (let i = 0; i < A.length; i++) if (A[i][0].test(k)) return A[i][1];
+  return key.replace(/\s+/g, '');
 }
 function deriveKind_(subject) {
   const re = /【([^】]+)】/g; let m;
@@ -349,26 +379,28 @@ function introText_(body) {
   const i = text.indexOf('【');
   return i > 0 ? text.slice(0, i) : '';
 }
+const FIX_RE = /訂正|修正|誤り|誤記|間違い|再送|correction|corrected|revis|amend|resend|updated/i;
 function isCorrection_(subject, f, intro) {
-  if (/訂正/.test(subject) || /訂正/.test(intro || '')) return true;
-  if (/訂正/.test((f['種別'] || '') + (f['区分'] || ''))) return true;
-  return Object.keys(f).some(function (k) { return /訂正/.test(k); });
+  if (FIX_RE.test(subject) || FIX_RE.test(intro || '')) return true;
+  if (FIX_RE.test((f['種別'] || '') + (f['区分'] || ''))) return true;
+  return Object.keys(f).some(function (k) { return FIX_RE.test(k); });
 }
 function route_(subject, fields) {
   if (!fields['種別'] && /【[^】]*[・,，、\/][^】]*】/.test(subject)) return 'skip';
   const t = fields['種別'] || subject;
-  const MAIN = /申込|物件確定|振替|新規|買い?増し?|他社増し?/;
-  if (/オープン/.test(t)) return 'open';
-  if (/承認/.test(t)) return 'thread';
-  if (MAIN.test(t)) return 'main';
-  if (/契約|金消/.test(t)) return 'thread';
+  if (/オープン|\bopen(ed)?\b/i.test(t)) return 'open';
+  if (/承認|approv/i.test(t)) return 'thread';
+  if (/申込|物件確定|振替|新規|買い?増し?|他社増し?|applica|transfer|confirm|\bnew\b/i.test(t)) return 'main';
+  if (/契約|金消|contract|loan/i.test(t)) return 'thread';
   if (!fields['種別'] && /新規|買い?増し?|他社増し?/.test(fields['区分'] || '')) return 'main';
+  if (fields['顧客名'] && fields['物件名']) return 'main';   // 種別が読めなくても、顧客名と物件名があれば案件として扱う
   return 'skip';
 }
 function norm_(s) {
   return String(s || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase()
     .replace(/リ[ヴブ]シ(ティ|テイ)/g, 'livcity')
-    .replace(/濱/g, '浜').replace(/[﨑嵜]/g, '崎').replace(/髙/g, '高').replace(/[邉邊]/g, '辺');
+    .replace(/濱/g, '浜').replace(/[﨑嵜]/g, '崎').replace(/髙/g, '高').replace(/[邉邊]/g, '辺')
+    .replace(/[ァ-ヶ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0x60); });   // カタカナ→ひらがな(表記ゆれ対策)
 }
 function normCust_(s) { return norm_(s).replace(/(様|さま)$/, ''); }
 function propKey_(f) { return norm_((f['物件名'] || '') + (f['号室'] || '')).replace(/号室|号/g, ''); }
