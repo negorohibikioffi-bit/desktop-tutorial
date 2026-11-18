@@ -222,10 +222,15 @@ function loadSettings_() {
   const s = (rows[0] && rows[0].settings) || {};
   return { mainKey: s.mainKey || 'kinsho', fields: s.fields || [] };
 }
-/** 同じ顧客の行(新しい順)。「（オープン）」済みは除く */
+/** 同じ顧客の行(新しい順)。「（オープン）」済みは除く。「島津」と「島津大輔」のような名前の長さ違いも同一扱い */
 function rowsOf_(cust) {
-  return sb_(TABLE + '?cust=eq.' + encodeURIComponent(cust) + '&order=id.desc')
-    .filter(function (r) { return String(r.name || '').indexOf(OPEN_SUFFIX) < 0; });
+  const notOpen = function (r) { return String(r.name || '').indexOf(OPEN_SUFFIX) < 0; };
+  let rows = sb_(TABLE + '?cust=eq.' + encodeURIComponent(cust) + '&order=id.desc').filter(notOpen);
+  if (!rows.length && cust.length >= 2) {
+    rows = sb_(TABLE + '?cust=like.' + encodeURIComponent(cust.slice(0, 2) + '*') + '&order=id.desc').filter(notOpen)
+      .filter(function (r) { const c = r.cust || ''; return c.indexOf(cust) === 0 || cust.indexOf(c) === 0; });
+  }
+  return rows;
 }
 function patch_(id, body) { sb_(TABLE + '?id=eq.' + id, { method: 'patch', payload: JSON.stringify(body) }); }
 function update_(row, mapped, st, pk, name) {
