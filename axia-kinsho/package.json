@@ -1,0 +1,13 @@
+{
+  "name": "axia-kinsho",
+  "private": true,
+  "version": "14.0.0",
+  "description": "金消予定日 一覧（AXIA JAPAN）— 静的PWA",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "@babel/standalone": "7.26.4"
+  }
+}
