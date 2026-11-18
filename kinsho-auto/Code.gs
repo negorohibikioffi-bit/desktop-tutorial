@@ -326,7 +326,7 @@ function parseFields_(body) {
     // 【項目】値 / [Item] 値 / ［項目］値
     let m = line.match(/^\s*[【\[［]([^】\]］]+)[】\]］]\s*[:：]?[ \t　]*(.*)$/);
     // 項目：値 / Item: value (知っている項目名だけ)
-    if (!m) { const m2 = line.match(/^\s*([^:：\s【\[［]{1,24}?)\s*[:：]\s*(.+)$/); if (m2 && KNOWN[canonKey_(m2[1])]) m = m2; }
+    if (!m) { const m2 = line.match(/^\s*([^:：【\[［]{1,24}?)\s*[:：]\s*(.+)$/); if (m2 && KNOWN[canonKey_(m2[1])]) m = m2; }
     if (m) { const k = canonKey_(m[1]); if (!(k in fields)) fields[k] = m[2].trim(); }
     else freeText.push(line);
   });
