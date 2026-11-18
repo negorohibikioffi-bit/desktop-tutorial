@@ -76,13 +76,13 @@ const D3: any = [
   { key: 'moushi', label: '申込日', type: 'date' },
 ];
 let ap: any = ruleExtract({ from: '桃井貴也 <x@gmail.com>', subject: '【申込】AXIA M-CITY大阪瑞光 101', body: '', dateIso: '2026-11-18' }, D3);
-assert.equal(ap.application.bukken, 'AXIA M-CITY大阪瑞光'); assert.equal(ap.application.room, '101');
-assert.deepEqual(ap.application.create, { bukken: 'AXIA M-CITY大阪瑞光', room: '101', moushi: '2026-11-18' });
+assert.equal(ap.applications[0].bukken, 'AXIA M-CITY大阪瑞光'); assert.equal(ap.applications[0].room, '101');
+assert.deepEqual(ap.applications[0].create, { bukken: 'AXIA M-CITY大阪瑞光', room: '101', moushi: '2026-11-18' });
 ap = ruleExtract({ from: 'x@gmail.com', subject: 'Re: 【申込】グランドパレス 1203号室', body: '', dateIso: '2026-11-18' }, D3);
-assert.equal(ap.application.bukken, 'グランドパレス'); assert.equal(ap.application.room, '1203');
+assert.equal(ap.applications[0].bukken, 'グランドパレス'); assert.equal(ap.applications[0].room, '1203');
 // 号室なし
 ap = ruleExtract({ from: 'x@gmail.com', subject: '【申込】戸建A', body: '', dateIso: '2026-11-18' }, D3);
-assert.equal(ap.application.room, ''); assert.equal(ap.application.bukken, '戸建A');
+assert.equal(ap.applications[0].room, ''); assert.equal(ap.applications[0].bukken, '戸建A');
 // 既存カード探索：全角半角・空白の違いを吸収／複数なら新しい方
 const ex = [{ id: 5, fields: { bukken: 'ＡＸＩＡ M-CITY大阪瑞光', room: '101' } }, { id: 9, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '101' } }, { id: 7, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '104' } }];
 assert.equal(findExisting(ex, { bukkenKey: 'bukken', roomKey: 'room', bukken: 'AXIA M-CITY大阪瑞光', room: '101' })!.id, 9);
@@ -105,41 +105,74 @@ const expectKey: Record<string, string> = { 事前承認: 'jizen', 本承認: 'h
 assert.equal(STAGES.length, 9);
 for (const s of STAGES) {
   const r: any = ruleExtract({ from: 'a@b.jp', subject: `【${s.name}】テスト物件 305`, body: '', dateIso: '2026-11-18' }, ALL);
-  assert.equal(r.updates[0].key, expectKey[s.name], s.name);
-  assert.equal(r.updates[0].date, '2026-11-18', s.name);                     // 日付が無ければ受信日
-  assert.equal(r.application.bukken, 'テスト物件'); assert.equal(r.application.room, '305');
+  assert.equal(r.applications[0].updates[0].key, expectKey[s.name], s.name);
+  assert.equal(r.applications[0].updates[0].date, '2026-11-18', s.name);                     // 日付が無ければ受信日
+  assert.equal(r.applications[0].bukken, 'テスト物件'); assert.equal(r.applications[0].room, '305');
 }
 // 件名の末尾の日付・時刻を優先（号室と取り違えない）
 let sg: any = ruleExtract({ from: 'a@b.jp', subject: '【金消】AXIA M-CITY大阪瑞光 101 11/30 14:00', body: '', dateIso: '2026-11-18' }, ALL);
-assert.deepEqual(sg.updates, [{ key: 'kinsho', date: '2026-11-30', time: '14:00' }]); assert.equal(sg.application.room, '101');
-assert.deepEqual(sg.application.create.kinsho, { d: '2026-11-30', t: '14:00', none: false });
+assert.deepEqual(sg.applications[0].updates, [{ key: 'kinsho', date: '2026-11-30', time: '14:00' }]); assert.equal(sg.applications[0].room, '101');
+assert.deepEqual(sg.applications[0].create.kinsho, { d: '2026-11-30', t: '14:00', none: false });
 // 本文のキーワード直後の日付
 sg = ruleExtract({ from: 'a@b.jp', subject: '【契約】グランドパレス 501', body: '契約日時：12月5日（土）13:30 でお願いします', dateIso: '2026-11-18' }, ALL);
-assert.deepEqual(sg.updates, [{ key: 'keiyaku', date: '2026-12-05', time: '13:30' }]);
+assert.deepEqual(sg.applications[0].updates, [{ key: 'keiyaku', date: '2026-12-05', time: '13:30' }]);
 // 「完了」「報告」付き・Re: 付き
 sg = ruleExtract({ from: 'a@b.jp', subject: 'Re: 【本承認完了】グランドパレス 501', body: '', dateIso: '2026-11-18' }, ALL);
-assert.equal(sg.updates[0].key, 'honsho');
+assert.equal(sg.applications[0].updates[0].key, 'honsho');
 // 対応する項目が無い種類 → 物件だけ登録（日付は入れない）
 sg = ruleExtract({ from: 'a@b.jp', subject: '【オープン】X物件 1', body: '', dateIso: '2026-11-18' }, ALL.filter((f: any) => f.key !== 'open'));
-assert.deepEqual(sg.updates, []);
+assert.deepEqual(sg.applications[0].updates, []);
 // 年またぎ：12月受信で「1月10日」→ 翌年
 assert.deepEqual(parseDateTime('1月10日 10:00', '2026-12-20'), { d: '2027-01-10', t: '10:00' });
 assert.equal(parseDateTime('メモ', '2026-11-18'), null);
 console.log('stage tests: all passed');
 // 日付が受信日の代用か
-assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1', body: '', dateIso: '2026-11-18' }, ALL) as any).dateIsFallback, true);
-assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1 11/20', body: '', dateIso: '2026-11-18' }, ALL) as any).dateIsFallback, false);
+assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1', body: '', dateIso: '2026-11-18' }, ALL) as any).applications[0].dateIsFallback, true);
+assert.equal((ruleExtract({ from: 'a@b.jp', subject: '【申込】物件 1 11/20', body: '', dateIso: '2026-11-18' }, ALL) as any).applications[0].dateIsFallback, false);
 console.log('fallback tests: all passed');
 
 // ---- 実際に届いた「訂正メール」----
 import { findSimilar } from './logic.ts';
 const D4: any = [{ key: 'bukken', label: '物件名', type: 'text' }, { key: 'room', label: '号室', type: 'text' }, { key: 'honsho', label: '本承認日', type: 'date' }];
 let c: any = ruleExtract({ from: 'a@b.jp', subject: '再送【本承認】グラン・リーヴェル川崎WEST 701　※物件名に誤りがありました', body: '', dateIso: '2026-11-18' }, D4);
-assert.equal(c.application.bukken, 'グラン・リーヴェル川崎WEST'); assert.equal(c.application.room, '701'); assert.equal(c.application.correction, true);
-assert.equal(c.updates[0].key, 'honsho');
+assert.equal(c.applications[0].bukken, 'グラン・リーヴェル川崎WEST'); assert.equal(c.applications[0].room, '701'); assert.equal(c.applications[0].correction, true);
+assert.equal(c.applications[0].updates[0].key, 'honsho');
 c = ruleExtract({ from: 'a@b.jp', subject: '【本承認】グラン・リヴェール川崎WEST 701', body: '', dateIso: '2026-11-18' }, D4);
-assert.equal(c.application.correction, false);
+assert.equal(c.applications[0].correction, false);
 const sim = findSimilar([{ id: 4, fields: { bukken: 'グラン・リヴェール川崎WEST', room: '701' } }, { id: 8, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '701' } }], { bukkenKey: 'bukken', roomKey: 'room', bukken: 'グラン・リーヴェル川崎WEST', room: '701' });
 assert.equal(sim!.id, 4);                                   // 似た名前＋同じ号室だけ。別物件は選ばん
 assert.equal(findSimilar([{ id: 8, fields: { bukken: 'AXIA M-CITY大阪瑞光', room: '701' } }], { bukkenKey: 'bukken', roomKey: 'room', bukken: 'グラン・リーヴェル川崎WEST', room: '701' }), null);
 console.log('correction tests: all passed');
+
+// ---- 実際の件名（2026/11 に届いた48通から）----
+import { findLoose } from './logic.ts';
+const R = (s: string) => ruleExtract({ from: 'a@b.jp', subject: s, body: '', dateIso: '2026-11-10' }, ALL) as any;
+// 物件が複数（全角空白／スラッシュ区切り）
+let mp = R('【事前承認】AXIA M-CITY浮間公園 103　AXIACITY神戸松原303');
+assert.equal(mp.applications.length, 2);
+assert.deepEqual(mp.applications.map((a: any) => [a.bukken, a.room]), [['AXIA M-CITY浮間公園', '103'], ['AXIACITY神戸松原', '303']]);
+mp = R('【オープン】AXIA CITY神戸松原 204／AXIA M-CITY大阪瑞光 514');
+assert.deepEqual(mp.applications.map((a: any) => [a.bukken, a.room]), [['AXIA CITY神戸松原', '204'], ['AXIA M-CITY大阪瑞光', '514']]);
+// 「未定」はカードにせん
+assert.equal(R('【申込】未定').relevant, false);
+assert.equal(R('【物件振替】未定').relevant, false);
+// 号室の書き方いろいろ
+assert.equal(R('【契約】AXIACITY神戸松原201号室').applications[0].room, '201');
+assert.equal(R('【契約】MAXIV梅島DUE 302 号室').applications[0].room, '302');
+assert.equal(R('【契約】MAXIV梅島DUE 302 号室').applications[0].bukken, 'MAXIV梅島DUE');
+assert.equal(R('【本承認】AXIA M-CITY浮間公園302').applications[0].room, '302');
+assert.equal(R('【物件確定】エスリード名城公園 1504 号室').applications[0].bukken, 'エスリード名城公園');
+// ※注記・顧客名誤りの再送
+let nt = R('【事前承認】AXIA M-CITY大阪瑞光207　※顧客名誤りのため再送');
+assert.equal(nt.applications[0].bukken, 'AXIA M-CITY大阪瑞光'); assert.equal(nt.applications[0].correction, true);
+// 件名に物件が無いテンプレ（本文に詳細）は今はルール対象外
+assert.equal(R('【申込メール】'), null); assert.equal(R('【物件振替・物件確定・オープンメール】'), null); assert.equal(R('【契約完了メール】'), null);
+// 表記ゆれ：長音・ハイフン・中点・全半角・大小は同じ物件
+const nr = [{ id: 1, fields: { bukken: 'グラン・リヴェール川崎WEST', room: '701' } }, { id: 2, fields: { bukken: 'AXIA M-City大阪瑞光', room: '203' } }];
+const K = (b: string, r: string) => ({ bukkenKey: 'bukken', roomKey: 'room', bukken: b, room: r });
+assert.equal(findLoose(nr, K('グラン・リーヴェル川崎WEST', '701'))!.id, 1);
+assert.equal(findLoose(nr, K('AXIA M-CITY大阪瑞光', '203'))!.id, 2);
+assert.equal(findLoose(nr, K('AXIA M-CITY浮間公園', '203')), null);                 // 号室が同じでも別物件
+assert.equal(findSimilar(nr, K('AXIA CITY大阪瑞光', '203'), 0.75)!.id, 2);            // 「M」の有無だけの違い
+assert.equal(findSimilar(nr, K('AXIA M-CITY浮間公園', '203'), 0.75), null);           // 同じシリーズ名でも別物件は結びつけん
+console.log('real-subject tests: all passed');

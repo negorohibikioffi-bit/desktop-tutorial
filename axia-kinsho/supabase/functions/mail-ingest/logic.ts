@@ -143,18 +143,20 @@ export function compactRows(
  * 型の決まったメールだけ拾う。当てはまらんメールは null を返す。
  * =================================================================== */
 
+export type Application = {
+  bukkenKey: string; roomKey: string; bukken: string; room: string;
+  create: Record<string, unknown>;          // 新規作成するときの初期値（key → 保存形式の値）
+  updates: Update[];                        // 既存カードに入れる日付
+  correction: boolean;                      // 「再送」「訂正」など、前のメールの物件名の誤りを直すメールか
+  dateIsFallback: boolean;                  // 日付が件名にも本文にも無く、受信日で代用した（＝すでに入っとる日付は上書きせん）
+};
+
 export type RuleResult = {
   relevant: boolean;         // false＝「このメールは対象外」と確定
   reason: string;
   propertyText: string;      // 案件を探すための文章（物件名・号室が入っとる所）
   updates: Update[];
-  dateIsFallback?: boolean;  // 日付が件名にも本文にも無く、受信日で代用した（＝すでに入っとる日付は上書きせん）
-  // 【申込】メール用：物件名・号室で既存カードを探し、無ければ create.fields で新規作成する
-  application?: {
-    bukkenKey: string; roomKey: string; bukken: string; room: string;
-    create: Record<string, unknown>;          // 新規作成するときの初期値（key → 保存形式の値）
-    correction: boolean;                      // 「再送」「訂正」など、前のメールの物件名の誤りを直すメールか
-  };
+  applications?: Application[];   // 進捗メール：件名の物件ごとに1件（複数物件のメールは複数）
 };
 
 /** 進捗メールの種類 → 埋める日付項目（項目名の正規表現。上から順に探す）と、本文で日付を探すキーワード */
@@ -205,35 +207,46 @@ export function ruleExtract(
   const body = m.body.normalize('NFKC');
   const from = m.from.toLowerCase();
 
-  // 0) 進捗メール：件名が「【種類】物件名 号室」（種類は STAGES の9つ）
-  const sm = subject.match(new RegExp(`^\\s*(?:(?:re|fw|fwd|再送|訂正|修正)\\s*[:：]?\\s*)*[【\\[]\\s*(${STAGES.map((s) => s.name).join('|')})(?:完了|報告|のご報告|のお知らせ)?\\s*[】\\]]\\s*(.+?)\\s*$`, 'i'));
+  // 0) 進捗メール：件名が「【種類】物件名 号室」（種類は STAGES の9つ）。物件が複数（／・、・全角空白区切り）でもよい
+  const raw = m.subject;
+  const sm = raw.match(new RegExp(`^\\s*(?:(?:re|fw|fwd|再送|訂正|修正)\\s*[:：]?\\s*)*[【\\[]\\s*(${STAGES.map((s) => s.name).join('|')})(?:完了|報告|のご報告|のお知らせ)?\\s*[】\\]]\\s*(.+?)\\s*$`, 'i'));
   if (sm) {
-    const stage = STAGES.find((s) => s.name === sm[1])!;
-    const isCorrection = /再送|訂正|修正|誤り|間違/.test(subject);   // 物件名などの訂正メール
-    let rest = sm[2].split(/[※＊*]/)[0].trim();                  // 末尾の「※物件名に誤りがありました」などの注記は物件名に含めん
-    // 件名の末尾に日付（時刻）が付いとれば、それを日付として使う
-    const subjDate = parseDateTime(rest.match(/(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/)?.[0] ?? '', m.dateIso);
-    rest = rest.replace(/[\s\u3000]*(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/, '');
-    const rm = rest.match(/^(.*?)[\s\u3000]*(\d{1,5})\s*(?:号室|号)?\s*$/);
-    const bukken = (rm ? rm[1] : rest).trim();
-    const room = rm ? rm[2] : '';
+    const stage = STAGES.find((s) => s.name === sm[1].normalize('NFKC'))!;
+    const isCorrection = /再送|訂正|修正|誤り|間違/.test(raw);      // 物件名などの訂正メール
+    const noteLess = sm[2].split(/[※＊*]/)[0].trim();               // 末尾の「※物件名に誤りがありました」などの注記は物件名に含めん
+    // 件名の末尾に日付（時刻）が付いとれば、それを日付として使う（全物件に共通）
+    const tailRe = /[\s\u3000]*(?:\d{4}[年\/.-])?\d{1,2}[月\/.-]\d{1,2}日?(?:[（(][^）)]*[）)])?(?:\s*\d{1,2}[:時]\d{2}分?)?\s*$/;
+    const subjDate = parseDateTime(noteLess.normalize('NFKC').match(tailRe)?.[0] ?? '', m.dateIso);
+    const bukkenPart = subjDate ? noteLess.normalize('NFKC').replace(tailRe, '') : noteLess;
     const bf = defs.find((d) => d.type === 'text' && /物件/.test(d.label));
     const rf = defs.find((d) => d.type === 'text' && /号室|部屋/.test(d.label));
     const af = stage.fields.map((re) => defs.find((d) => re.test(d.label) && isDateField(d))).find(Boolean);
-    if (!bukken || !bf) return { relevant: true, reason: `${stage.name}のメールだが、物件名を読めんか「物件名」の項目が無い`, propertyText: subject, updates: [] };
+    if (!bf) return { relevant: true, reason: `${stage.name}のメールだが「物件名」の項目が無い`, propertyText: raw, updates: [] };
     // 日付：件名の日付 ＞ 本文のキーワード直後の日付 ＞ 受信日
     const bodyDate = parseDateTime(findAfterKeyword(body, stage.kw), m.dateIso);
     const dt = subjDate ?? bodyDate ?? (isRealDate(m.dateIso) ? { d: m.dateIso, t: '' } : null);
-    const create: Record<string, unknown> = { [bf.key]: bukken };
-    if (rf && room) create[rf.key] = room;
-    if (af && dt) create[af.key] = af.type === 'datetime' ? { d: dt.d, t: dt.t, none: false } : dt.d;
+
+    const apps: Application[] = [];
+    for (const part0 of bukkenPart.split(/[／\/、,，\u3000]+/)) {
+      const part = part0.normalize('NFKC').trim();
+      if (!part) continue;
+      const rm = part.match(/^(.*?)[\s\u3000]*(\d{1,5})\s*(?:号室|号)?\s*$/);
+      const bukken = (rm ? rm[1] : part).trim();
+      const room = rm ? rm[2] : '';
+      if (!bukken || /^(未定|なし|無し|不明|未確定|tbd|-|ー)$/i.test(bukken)) continue;   // 「未定」などはカードにせん
+      const create: Record<string, unknown> = { [bf.key]: bukken };
+      if (rf && room) create[rf.key] = room;
+      if (af && dt) create[af.key] = af.type === 'datetime' ? { d: dt.d, t: dt.t, none: false } : dt.d;
+      apps.push({
+        bukkenKey: bf.key, roomKey: rf?.key ?? '', bukken, room, create,
+        updates: af && dt ? [{ key: af.key, date: dt.d, time: dt.t || undefined }] : [],
+        correction: isCorrection, dateIsFallback: !subjDate && !bodyDate,
+      });
+    }
+    if (!apps.length) return { relevant: false, reason: `${stage.name}のメール：物件が「未定」または読み取れず`, propertyText: raw, updates: [] };
     return {
-      relevant: true,
-      reason: `${stage.name}（${bukken}${room ? ' ' + room : ''}）${af ? '' : ` ※「${stage.name}」に当たる日付項目が無いので物件だけ登録`}`,
-      propertyText: subject,
-      updates: af && dt ? [{ key: af.key, date: dt.d, time: dt.t || undefined }] : [],
-      dateIsFallback: !subjDate && !bodyDate,
-      application: { bukkenKey: bf.key, roomKey: rf?.key ?? '', bukken, room, create, correction: isCorrection },
+      relevant: true, propertyText: raw, updates: [], applications: apps,
+      reason: `${stage.name}（${apps.map((a) => a.bukken + (a.room ? ' ' + a.room : '')).join('、')}）${af ? '' : ` ※「${stage.name}」に当たる日付項目が無いので物件だけ登録`}`,
     };
   }
 
@@ -278,31 +291,32 @@ export function pickRow<T extends { id: number; name?: string; fields?: Record<s
   return { row: scored[0].r, hits: scored[0].h, unique };
 }
 
-/** 物件名（と号室）が完全に一致する既存カードを探す。複数あれば新しい（id が大きい）方 */
-export function findExisting<T extends { id: number; fields?: Record<string, unknown> }>(
-  rows: T[], a: { bukkenKey: string; roomKey: string; bukken: string; room: string },
-): T | null {
-  const hit = rows.filter((r) => {
-    const f = r.fields ?? {};
-    if (norm(String(f[a.bukkenKey] ?? '')) !== norm(a.bukken)) return false;
-    if (a.room && a.roomKey && norm(String(f[a.roomKey] ?? '')) !== norm(a.room)) return false;
-    return true;
-  });
-  return hit.length ? hit.reduce((x, y) => (y.id > x.id ? y : x)) : null;
+type Key = { bukkenKey: string; roomKey: string; bukken: string; room: string };
+
+/** 物件名の比較用：空白・大小文字・全半角に加えて、長音（ー）・ハイフン・中点も無視する（リヴェール＝リーヴェル、M-CITY＝MCITY） */
+const normName = (s: string) => norm(s).replace(/[\-‐‑–—―ー・･]/g, '');
+
+const sameRoom = (r: { fields?: Record<string, unknown> }, a: Key) =>
+  !a.room || !a.roomKey || norm(String((r.fields ?? {})[a.roomKey] ?? '')) === norm(a.room);
+
+const newest = <T extends { id: number }>(xs: T[]): T | null => (xs.length ? xs.reduce((x, y) => (y.id > x.id ? y : x)) : null);
+
+/** 物件名（と号室）が、表記そのままで一致する既存カード（複数なら新しい方） */
+export function findExisting<T extends { id: number; fields?: Record<string, unknown> }>(rows: T[], a: Key): T | null {
+  return newest(rows.filter((r) => norm(String((r.fields ?? {})[a.bukkenKey] ?? '')) === norm(a.bukken) && sameRoom(r, a)));
 }
 
-const bigrams = (s: string) => { const a = norm(s), out = new Set<string>(); for (let i = 0; i < a.length - 1; i++) out.add(a.slice(i, i + 2)); return out; };
+/** 長音・ハイフン・中点の違いだけで一致する既存カード（表記ゆれ） */
+export function findLoose<T extends { id: number; fields?: Record<string, unknown> }>(rows: T[], a: Key): T | null {
+  return newest(rows.filter((r) => normName(String((r.fields ?? {})[a.bukkenKey] ?? '')) === normName(a.bukken) && sameRoom(r, a)));
+}
+
+const bigrams = (s: string) => { const a = normName(s), out = new Set<string>(); for (let i = 0; i < a.length - 1; i++) out.add(a.slice(i, i + 2)); return out; };
 const jaccard = (x: Set<string>, y: Set<string>) => { let n = 0; x.forEach((v) => { if (y.has(v)) n++; }); const u = x.size + y.size - n; return u ? n / u : 0; };
 
-/** 訂正メール用：号室が同じで、物件名がよく似た既存カードを探す（誤った名前で作られたカードを見つける）。複数なら新しい方 */
-export function findSimilar<T extends { id: number; fields?: Record<string, unknown> }>(
-  rows: T[], a: { bukkenKey: string; roomKey: string; bukken: string; room: string },
-): T | null {
+/** 号室が同じで、物件名がよく似た既存カード（threshold 以上）。複数なら新しい方 */
+export function findSimilar<T extends { id: number; fields?: Record<string, unknown> }>(rows: T[], a: Key, threshold = 0.6): T | null {
   if (!a.room || !a.roomKey) return null;
   const me = bigrams(a.bukken);
-  const hit = rows.filter((r) => {
-    const f = r.fields ?? {};
-    return norm(String(f[a.roomKey] ?? '')) === norm(a.room) && jaccard(me, bigrams(String(f[a.bukkenKey] ?? ''))) >= 0.6;
-  });
-  return hit.length ? hit.reduce((x, y) => (y.id > x.id ? y : x)) : null;
+  return newest(rows.filter((r) => sameRoom(r, a) && jaccard(me, bigrams(String((r.fields ?? {})[a.bukkenKey] ?? ''))) >= threshold));
 }
