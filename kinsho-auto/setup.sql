@@ -20,3 +20,8 @@ create policy "anon all" on public.axia_kinsho_auto_settings for all using (true
 alter publication supabase_realtime add table public.axia_kinsho_auto, public.axia_kinsho_auto_settings;
 -- 元の設定をコピーして同じ項目構成にする場合:
 -- insert into public.axia_kinsho_auto_settings select * from public.axia_kinsho_settings;
+
+-- (自動取込の照合用) 顧客・物件キー列。Code.gs が使う。
+alter table public.axia_kinsho_auto add column if not exists cust text;
+alter table public.axia_kinsho_auto add column if not exists prop text;
+create index if not exists axia_kinsho_auto_cust_idx on public.axia_kinsho_auto (cust);
