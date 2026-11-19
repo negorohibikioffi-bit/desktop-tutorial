@@ -163,13 +163,13 @@ function notifyNewApplications() {
   cleanup_(props, nowSec);
 }
 
-function apply_(msg, f, st) {
+function applyOne_(msg, f, st, idx, claimed) {
   const subject = msg.getSubject();
   const route = route_(subject, f);
   if (route === 'skip') return;
   const cust = normCust_(f['顧客名']), pk = propKey_(f);
   const name = f['顧客名'].replace(/様$/, '').trim();
-  const rows = rowsOf_(cust, pk);
+  const rows = rowsOf_(cust, pk).filter(function (r) { return !claimed[r.id]; });   // 同じメールの別物件で使った行は除く
   const sameProp = rows.filter(function (r) { return samePropKey_(r.prop, pk); })[0]
                 || rows.filter(function (r) { return looseSameProp_(r.prop, pk); })[0] || null;
   const mapped = mapFields_(f, st, msg.getDate());
@@ -178,13 +178,13 @@ function apply_(msg, f, st) {
 
   if (route === 'open') {                       // 行は消さずに「（オープン）」表示
     const t = sameProp || (rows.length === 1 ? rows[0] : null);
-    if (t) patch_(t.id, { name: t.name.replace(OPEN_SUFFIX, '') + OPEN_SUFFIX });
+    if (t) { claimed[t.id] = true; patch_(t.id, { name: t.name.replace(OPEN_SUFFIX, '') + OPEN_SUFFIX }); }
     return;
   }
   if (route === 'thread') {                     // 契約・金消・承認: 該当行に追記(訂正なら上書き)
     const t = sameProp || (rows.length === 1 || fixFlag ? rows[0] : null);
-    if (t) return update_(t, mapped, st, pk, nameUpd, cust);
-    return insert_(name, cust, pk, mapped, st, msg);
+    if (t) { claimed[t.id] = true; return update_(t, mapped, st, pk, nameUpd, cust); }
+    return insert_(name, cust, pk, mapped, st, msg, idx);
   }
   // main: 申込・物件確定・振替・訂正
   const kind = f['種別'] || '';
@@ -195,8 +195,20 @@ function apply_(msg, f, st) {
   else if (fixFlag) t = sameProp || rows[0] || null;                   // 訂正: 同じ物件、なければその顧客の最新の行
   else if (confirm) t = rows.filter(function (r) { return !r.prop || /未定|未確定|未決定/.test(r.prop); })[0] || sameProp || null;
   else t = sameProp;                                                   // 通常の申込: 同じ物件の行があれば更新(重複防止)
-  if (t) return update_(t, mapped, st, pk, (fixFlag || transfer) ? name : null, cust);
-  insert_(name, cust, pk, mapped, st, msg);
+  if (t) { claimed[t.id] = true; return update_(t, mapped, st, pk, (fixFlag || transfer) ? name : null, cust); }
+  insert_(name, cust, pk, mapped, st, msg, idx);
+}
+/** 1通のメールを反映。【物件名】が「A 103／B 303」のように複数あれば、物件ごとに別の行として扱う */
+function apply_(msg, f, st) {
+  const raw = f['物件名'] || '';
+  const parts = raw.split(/[／\/]/).map(function (x) { return x.trim(); }).filter(Boolean);
+  const claimed = {};
+  if (parts.length < 2) return applyOne_(msg, f, st, 0, claimed);
+  parts.forEach(function (p, i) {
+    const g = Object.assign({}, f);
+    g['物件名'] = p; g['号室'] = '';     // 部屋番号は各物件名の末尾の数字から読む
+    applyOne_(msg, g, st, i, claimed);
+  });
 }
 
 /** メールの項目を、アプリの項目キーの値に変換(「－」・空欄は入れない) */
@@ -308,11 +320,11 @@ function update_(row, mapped, st, pk, name, cust) {
   if (name) { body.name = name; if (cust) body.cust = cust; }
   patch_(row.id, body);
 }
-function insert_(name, cust, pk, mapped, st, msg) {
+function insert_(name, cust, pk, mapped, st, msg, idx) {
   const fallback = Utilities.formatDate(msg.getDate(), 'Asia/Tokyo', 'yyyy-MM');
   sb_(TABLE + '?on_conflict=mail_id', {
     method: 'post', headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
-    payload: JSON.stringify({ mail_id: msg.getId(), month: monthOf_(mapped, st, fallback), name: name, cust: cust, prop: pk, fields: mapped, sort_order: msg.getDate().getTime() % 1e9 }),
+    payload: JSON.stringify({ mail_id: msg.getId() + (idx ? '#' + idx : ''), month: monthOf_(mapped, st, fallback), name: name, cust: cust, prop: pk, fields: mapped, sort_order: msg.getDate().getTime() % 1e9 }),
   });
 }
 
