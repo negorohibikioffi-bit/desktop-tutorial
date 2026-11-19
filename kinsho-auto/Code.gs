@@ -183,6 +183,19 @@ function applyOne_(msg, f, st, idx, claimed) {
   }
   if (route === 'thread') {                     // 契約・金消・承認: 該当行に追記(訂正なら上書き)
     const t = sameProp || (rows.length === 1 || fixFlag ? rows[0] : null);
+    // 承認メールは、受信日を「承認日」に入れる(本承認は上書き、事前承認は空のときだけ)
+    const kindTxt = (f['種別'] || '') + ' ' + subject;
+    if (/承認/.test(kindTxt)) {
+      const af = st.fields.filter(function (x) { return /^承認/.test(x.label || ''); })[0];
+      if (af && !(mapped[af.key])) {
+        const isHon = /本承認/.test(kindTxt);
+        const has = t && t.fields && t.fields[af.key] && (t.fields[af.key].d || typeof t.fields[af.key] === 'string');
+        if (isHon || !has) {
+          const ds = Utilities.formatDate(msg.getDate(), 'Asia/Tokyo', 'yyyy-MM-dd');
+          mapped[af.key] = af.type === 'datetime' ? { d: ds, t: '', none: false } : ds;
+        }
+      }
+    }
     if (t) { claimed[t.id] = true; return update_(t, mapped, st, pk, nameUpd, cust); }
     return insert_(name, cust, pk, mapped, st, msg, idx);
   }
