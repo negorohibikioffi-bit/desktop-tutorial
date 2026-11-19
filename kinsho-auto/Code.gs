@@ -440,3 +440,34 @@ function resetMarks() {
   const p = PropertiesService.getScriptProperties();
   Object.keys(p.getProperties()).forEach(function (k) { if (/^(DONE_|TS_)/.test(k)) p.deleteProperty(k); });
 }
+
+/**
+ * 「このお客様が入っていない」を調べる(DBには書かない)。
+ * KEYWORD を変えて実行 → ログに、メールが見つかったか/どう判定されたか/DBにあるか が出る。
+ */
+function debugFind() {
+  const KEYWORD = '登坂';   // ← お客様名(苗字だけでOK)や物件名に変えて実行
+  const st = loadSettings_();
+  const props = PropertiesService.getScriptProperties();
+  const q = KEYWORD + ' newer_than:90d';
+  const th = searchThreads_(q);
+  Logger.log('Gmail検索「' + q + '」→ ' + th.length + '件のスレッド');
+  th.forEach(function (t) {
+    t.getMessages().forEach(function (m) {
+      const f = readFields_(m);
+      const inQuery = searchThreads_(QUERY + ' after:' + Math.floor(new Date(START_DATE).getTime() / 1000) + ' ' + KEYWORD).length > 0;
+      Logger.log([
+        Utilities.formatDate(m.getDate(), 'Asia/Tokyo', 'MM/dd HH:mm'), m.getSubject(),
+        '顧客名=' + (f['顧客名'] || 'なし'), '物件名=' + (f['物件名'] || 'なし'), '号室=' + (f['号室'] || 'なし'),
+        'route=' + route_(m.getSubject(), f),
+        '処理済み=' + (props.getProperty('DONE_' + m.getId()) ? 'はい' : 'いいえ'),
+        '取込の検索条件に該当=' + (inQuery ? 'はい' : 'いいえ'),
+        '開始日以降=' + (m.getDate() >= new Date(START_DATE) ? 'はい' : 'いいえ(11/1より前)'),
+      ].join(' | '));
+    });
+  });
+  const key = norm_(KEYWORD);
+  const rows = sb_(TABLE + '?or=(cust.like.' + encodeURIComponent('*' + key + '*') + ',prop.like.' + encodeURIComponent('*' + key + '*') + ')&order=id.desc');
+  Logger.log('DB(アプリ)にある該当行: ' + rows.length + '件');
+  rows.forEach(function (r) { Logger.log('  id=' + r.id + ' / ' + r.month + ' / ' + r.name + ' / 物件キー=' + r.prop); });
+}
