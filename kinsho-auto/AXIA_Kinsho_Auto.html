@@ -442,7 +442,9 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   // 日付系のsub項目（金消予定日など）は灰色チップじゃなく、期日で色が変わるバッジ表示にする
   const dateSubs = restSubs.filter(f => f.type === 'date' || f.type === 'datetime');
   const chipSubs = restSubs.filter(f => f.type !== 'date' && f.type !== 'datetime');
-  const headTxt = headSubs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ');
+  // 見出しは「物件名 部屋番号」の順（部屋番号・号室は後ろに回す）
+  const isRoom = (f) => /号室|部屋/.test(f.label || '');
+  const headTxt = [...headSubs.filter(f => !isRoom(f)), ...headSubs.filter(isRoom)].map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ');
   // 名前 ＋ サブ項目（日付系以外）。値が空の項目は「項目名：－」で出して、設定が効いとることが分かるようにする
   const lineItems = [
     ...(r.name ? [{ k: '__name', t: r.name, empty: false }] : []),
