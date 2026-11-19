@@ -384,8 +384,20 @@ function deriveKind_(subject) {
 function readFields_(msg) {
   const f = parseFields_(msg.getPlainBody());
   if (!f['種別']) { const k = deriveKind_(msg.getSubject()); if (k) f['種別'] = k; }
+  fixRoomFromSubject_(f, msg.getSubject());
   return f;
 }
+/** 【号室】と件名の部屋番号が食い違うときは、件名の番号を優先(例: 号室=102 / 件名「浮間公園 103」→ 103) */
+function fixRoomFromSubject_(f, subject) {
+  const name = norm_(f['物件名'] || ''), room = String(f['号室'] || '').replace(/[^0-9]/g, '');
+  if (!name || !room) return;
+  const subj = norm_(subject).replace(/号室|号/g, '');
+  const i = subj.indexOf(name);
+  if (i < 0) return;
+  const m = subj.slice(i + name.length).match(/^(\d{2,4})/);
+  if (m && m[1] !== room) f['号室'] = m[1];
+}
+
 function introText_(body) {
   const text = body.split(/\r?\n/).filter(function (l) { return !/^\s*>/.test(l); }).join('\n');
   const i = text.indexOf('【');
